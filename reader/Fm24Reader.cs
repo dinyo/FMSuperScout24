@@ -16,7 +16,9 @@ internal sealed class Fm24Reader : IDisposable
     private const uint PageExecuteReadWrite = 0x40;
     private const uint PageExecuteWriteCopy = 0x80;
     // FM24 24.4.x club records link to their Cint (facilities) and Cfin
-    // (finances) blocks at these offsets. Values were checked against Genie Scout.
+    // (finances) blocks at these offsets. The balance field agrees with Genie
+    // Scout 24.4.2 for Charleroi; the budget offsets below do not yet match its
+    // displayed values and must not be treated as Genie-confirmed.
     private const ulong ClubInfoPointerOffset = 0x100;
     private const ulong ClubFinancePointerOffset = 0x150;
     private const int ClubTrainingFacilitiesOffset = 0x120;
@@ -1216,21 +1218,22 @@ internal sealed class Fm24Reader : IDisposable
         ulong finance = ReadPtr(club.Address + ClubFinancePointerOffset);
         if (finance == 0 || !ClubFinanceMarkers.Contains(ReadU16(finance))) return;
 
-        club.Balance = ReadI32(finance + (ulong)ClubBalanceOffset);
+        byte[]? balance = ReadBytes(finance + (ulong)ClubBalanceOffset, sizeof(int));
+        if (balance != null) club.Balance = BitConverter.ToInt32(balance, 0);
 
-        byte[]? transfer = ReadBytes(finance + (ulong)ClubRemainingTransferOffset, sizeof(uint) * 2);
+        byte[]? transfer = ReadBytes(finance + (ulong)ClubRemainingTransferOffset, sizeof(int) * 2);
         if (transfer != null)
         {
-            club.RemainingTransfer = ClubMoney(BitConverter.ToUInt32(transfer, 0));
-            club.TransferBudget = ClubMoney(BitConverter.ToUInt32(transfer, sizeof(uint)));
+            club.RemainingTransfer = ClubMoney(BitConverter.ToInt32(transfer, 0));
+            club.TransferBudget = ClubMoney(BitConverter.ToInt32(transfer, sizeof(int)));
         }
 
         byte[]? wages = ReadBytes(finance + (ulong)ClubWeeklyWageBudgetOffset,
-            ClubWeeklyWageTotalWithBonusesOffset - ClubWeeklyWageBudgetOffset + sizeof(uint));
+            ClubWeeklyWageTotalWithBonusesOffset - ClubWeeklyWageBudgetOffset + sizeof(int));
         if (wages != null)
         {
-            club.WageBudget = ClubMoney(BitConverter.ToUInt32(wages, 0));
-            long? weeklyWageTotalWithBonuses = ClubMoney(BitConverter.ToUInt32(wages,
+            club.WageBudget = ClubMoney(BitConverter.ToInt32(wages, 0));
+            long? weeklyWageTotalWithBonuses = ClubMoney(BitConverter.ToInt32(wages,
                 ClubWeeklyWageTotalWithBonusesOffset - ClubWeeklyWageBudgetOffset));
             club.WageUsed = weeklyWageTotalWithBonuses;
             // Use the bonus-inclusive weekly commitment so the remaining figure
@@ -1241,7 +1244,8 @@ internal sealed class Fm24Reader : IDisposable
     }
 
     private static int? Facility(byte value) => value <= 20 ? value : null;
-    private static long? ClubMoney(uint value) => value == uint.MaxValue ? null : value;
+    // Preserve negative finance values instead of interpreting them as uint values.
+    private static long? ClubMoney(int value) => value;
 
     private SquadScanStats ApplySquadMembership(List<ClubInfo> clubs, Dictionary<ulong, Person> playersByAddress)
     {
