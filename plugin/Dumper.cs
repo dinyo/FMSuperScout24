@@ -32,12 +32,195 @@ internal static class Dumper
     // Spelers die in de selectie van meer dan één club staan (= huurrelatie, zie PickSquad).
     internal static HashSet<uint> MultiClub = new();
     internal static List<string> MultiClubSample = new();
+    internal static HashSet<uint> GameShortlist = new();
+    internal static bool GameShortlistFound;
 
     private const int ChunkSize = 32 * 1024 * 1024; // 32 MB leesblokken
 
     // Herbruikbare leesbuffers over scans heen (max 8 workers × 32 MB). Per scan vers
     // alloceren liet de LOH groeien — zie de toelichting bij MemScan._gpPool.
     private static readonly byte[][] BufPool = new byte[8][];
+    private static ulong CachedVisibleList;
+    // FM26.3.2 visible-list layout (confirmed against Genie Scout 26g build 1534):
+    // [vtable/header][auxiliary pointer][vector start][vector end].
+    private const ulong VisibleVectorStartOffset = 0x10;
+    private const ulong VisibleVectorEndOffset = 0x18;
+
+    // Keep the object address, not only a previously read vector range. FM updates
+    // this vector when the in-game filter changes while the list object stays alive.
+    private readonly struct VisibleList
+    {
+        public readonly ulong Object, Start, End;
+        public VisibleList(ulong obj, ulong start, ulong end)
+        { Object = obj; Start = start; End = end; }
+    }
+
+    public static void WriteShortlistError(string message)
+    {
+        Directory.CreateDirectory(OutDir);
+        File.WriteAllText(Path.Combine(OutDir, "shortlist.json"),
+            $"{{\"state\":\"error\",\"error\":\"{JsonEscape(message)}\",\"at\":\"{DateTime.Now:s}\"}}");
+    }
+
+    // Snelle, aparte route: leest alleen de zichtbare FM-resultaatlijst en veroorzaakt
+    // dus niet langer een volledige database-dump van 27+ seconden.
+    public static void DumpVisibleShortlist()
+    {
+        Directory.CreateDirectory(OutDir);
+        string file = Path.Combine(OutDir, "shortlist.json");
+        File.WriteAllText(file, $"{{\"state\":\"scanning\",\"at\":\"{DateTime.Now:s}\"}}");
+        var mem = new MemScan(false); CurrentScan = mem;
+        if (mem.GpBase == 0) throw new Exception("game_plugin.dll belum siap");
+        EnsureShortlistLayoutSupported(mem);
+        ulong expected = mem.GpBase + Fields.VISIBLE_PLAYER_LIST_HEADER_RVA;
+        ulong probeBytes = 0;
+        foreach (var (_, size) in mem.ReadableRegions) probeBytes += size;
+        Plugin.Log.LogInfo($"Shortlist probe: {mem.ReadableRegions.Count:N0} committed region(s), {probeBytes / (1024 * 1024):N0} MB, header 0x{expected:X}.");
+        bool Valid(ulong p, out VisibleList result)
+        {
+            result = default;
+            if (p == 0 || mem.Ptr(p) != expected) return false;
+            ulong start = mem.Ptr(p + VisibleVectorStartOffset);
+            ulong end = mem.Ptr(p + VisibleVectorEndOffset);
+            if (start < 0x300000 || end <= start || (end - start) % 8 != 0 || (end - start) / 8 > 500_000)
+                return false;
+            result = new VisibleList(p, start, end);
+            return true;
+        }
+        if (!Valid(CachedVisibleList, out var active))
+        {
+            var buf = new byte[8 * 1024 * 1024];
+            byte[] needle = BitConverter.GetBytes(expected);
+            var candidates = new List<VisibleList>();
+            int readFailed = 0, partialReads = 0, unreadPages = 0;
+            foreach (var (region, size) in mem.ReadableRegions)
+            {
+                for (ulong done = 0; done < size;)
+                {
+                    int want = (int)Math.Min((ulong)buf.Length, size - done);
+                    int readLen = want;
+                    bool fullRead = true;
+                    // A failed ReadProcessMemory can still contain a valid prefix up
+                    // to the first inaccessible page. Previously we retried 1 MB and
+                    // skipped that entire MB when it also failed, which is precisely
+                    // how a valid shortlist header could disappear from the scan.
+                    if (!mem.ReadBlock(region + done, buf, want))
+                    {
+                        readFailed++;
+                        fullRead = false;
+                        readLen = mem.ReadBlockPartial(region + done, buf, want);
+                        if (readLen < needle.Length)
+                        {
+                            // No usable prefix: advance only one page, never a whole
+                            // 1 MB fallback block. The next page may be the list.
+                            int page = (int)Math.Min(4096UL, size - done);
+                            readLen = mem.ReadBlockPartial(region + done, buf, page);
+                            if (readLen < needle.Length)
+                            {
+                                unreadPages++;
+                                done += (ulong)page;
+                                continue;
+                            }
+                        }
+                        partialReads++;
+                    }
+                    {
+                        // Span.IndexOf gebruikt de gevectoriseerde runtime-zoeker. Alle
+                        // 8-bytewoorden één voor één via BitConverter nalopen was bij 5 GB
+                        // honderden miljoenen calls en maakte deze route onnodig traag.
+                        int from = 0;
+                        // Alleen de vtable/header-pointer hoeft volledig in dit blok te
+                        // staan. De vector-pointers op +0x10/+0x18 kunnen precies op een
+                        // VirtualQueryEx- of chunkgrens vallen; Valid() leest die veilig
+                        // afzonderlijk. Genie Scout vindt zulke shortlist-objecten ook.
+                        while (from + needle.Length <= readLen)
+                        {
+                            int hit = buf.AsSpan(from, readLen - from).IndexOf(needle);
+                            if (hit < 0) break;
+                            int i = from + hit;
+                            if (((region + done + (ulong)i) & 7) == 0
+                                && Valid(region + done + (ulong)i, out var candidate)
+                                && !candidates.Any(x => x.Object == candidate.Object))
+                                candidates.Add(candidate);
+                            from = i + 1;
+                        }
+                    }
+                    // Candidate occupies 32 bytes through vector-end at +0x18.
+                    // Keep 32 bytes of overlap for alignment/chunk boundaries.
+                    int advance = fullRead
+                        ? Math.Max(8, readLen - 32)
+                        : Math.Max(4096, readLen - 32);
+                    done += Math.Min((ulong)advance, size - done);
+                }
+            }
+            Plugin.Log.LogInfo($"Shortlist scan: {candidates.Count} list candidate(s), {readFailed} partial read(s), {partialReads} usable prefix(es), {unreadPages} unread page(s).");
+            int best = -1;
+            HashSet<uint> bestIds = null;
+            foreach (var candidate in candidates)
+            {
+                var ids = ReadVisiblePlayerIds(mem, candidate);
+                if (ids.Count > best)
+                { best = ids.Count; bestIds = ids; active = candidate; }
+            }
+            if (best < 0) throw new Exception($"Daftar pemain aktif tidak ditemukan (partial scan: {readFailed}, unread page: {unreadPages}). Buka hasil pencarian pemain di FM26.");
+            CachedVisibleList = active.Object;
+            WriteShortlistResult(file, bestIds);
+            return;
+        }
+
+        WriteShortlistResult(file, ReadVisiblePlayerIds(mem, active));
+    }
+
+    private static void EnsureShortlistLayoutSupported(MemScan mem)
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(mem.GpPath))
+                throw new Exception("path game_plugin.dll tidak diketahui");
+            var version = FileVersionInfo.GetVersionInfo(mem.GpPath);
+            if (version.FileMajorPart == Fields.SUPPORTED_MAJOR
+                && version.FileMinorPart == Fields.SUPPORTED_MINOR
+                && version.FileBuildPart == Fields.SUPPORTED_SHORTLIST_PATCH)
+                return;
+            throw new Exception($"offset shortlist hanya diverifikasi untuk FM {Fields.SUPPORTED_MAJOR}.{Fields.SUPPORTED_MINOR}.{Fields.SUPPORTED_SHORTLIST_PATCH}; game_plugin.dll saat ini {version.FileVersion ?? "tidak diketahui"}.");
+        }
+        catch (Exception e)
+        {
+            if (e.Message.StartsWith("offset shortlist")) throw;
+            throw new Exception("versi game_plugin.dll untuk shortlist tidak dapat diverifikasi: " + e.Message);
+        }
+    }
+
+    private static HashSet<uint> ReadVisiblePlayerIds(MemScan mem, VisibleList list)
+    {
+        var ids = new HashSet<uint>();
+        ulong count = (list.End - list.Start) / 8;
+        for (ulong i = 0; i < count; i++)
+        {
+            ulong entry = mem.Ptr(list.Start + i * 8);
+            if (entry == 0) continue;
+            // Biasanya entry langsung menunjuk person; probe wrapper tetap dipertahankan.
+            for (int wrap = -1; wrap <= 16; wrap++)
+            {
+                ulong p = wrap < 0 ? entry : mem.Ptr(entry + (ulong)(wrap * 8));
+                if (p == 0) continue;
+                ulong vt = mem.Ptr(p);
+                int off = mem.DynamicOffsetFromVtable(vt);
+                if (off != Fields.PLAYER_OFFSET && off != Fields.PLAYER_STAFF_OFFSET) continue;
+                uint uid = mem.U32(p + Fields.OBJ_DUNI);
+                ulong pb = p - (ulong)off;
+                ushort ca = mem.U16(pb + Fields.PLAO_CA), pa = mem.U16(pb + Fields.PLAO_PA);
+                if (uid != 0 && uid != 0xffffffff && ca is >= 1 and <= 200 && pa is >= 1 and <= 200) { ids.Add(uid); break; }
+            }
+        }
+        return ids;
+    }
+
+    private static void WriteShortlistResult(string file, HashSet<uint> ids)
+    {
+        string json = "{\"state\":\"done\",\"count\":" + ids.Count + ",\"ids\":[" + string.Join(',', ids) + $"],\"at\":\"{DateTime.Now:s}\"}}";
+        File.WriteAllText(file + ".tmp", json); File.Move(file + ".tmp", file, true);
+    }
 
     // Leesbron van de laatste scan ("live" / "snapshot…") — gaat mee in diagnostics.
     internal static string ScanMode = "live";
@@ -53,6 +236,7 @@ internal static class Dumper
         public readonly List<(ulong person, string name, string club, int rep)> Managers = new();
         public readonly Dictionary<ulong, uint> PersonToUid = new();
         public readonly List<ulong> ClubObjs = new();
+        public readonly List<VisibleList> VisiblePlayerLists = new();
         public long Candidates, VtGp, Women;
     }
 
@@ -148,6 +332,7 @@ internal static class Dumper
         DiagMyTeam = 0; DateVotes = new(); AllOffHist = new();
         DiagStaffRaw = 0; DiagStaffAlsoPlayer = 0;
         MultiClub = new HashSet<uint>(); MultiClubSample = new List<string>();
+        GameShortlist = new HashSet<uint>(); GameShortlistFound = false;
         // Fase-timing: waar gaat de tijd heen? Elke Phase() logt de duur sinds de vorige.
         PhaseLog = new List<string>();
         long tPrev = 0;
@@ -203,6 +388,7 @@ internal static class Dumper
         var managers = new List<(ulong person, string name, string club, int rep)>(); // human-managers
         var personToUid = new Dictionary<ulong, uint>(1 << 17); // person/objectstart-adres → uid
         var clubObjs = new List<ulong>();                        // gedetecteerde club-objecten
+        var visiblePlayerLists = new List<VisibleList>();
         long candidates = 0, vtGp = 0, women = 0;
 
         // Voortgang + parallellisatie. De geheugenregio's zijn onafhankelijk, dus verdeel ze
@@ -213,6 +399,7 @@ internal static class Dumper
         foreach (var r in mem.ScanRegions) totalBytes += r.size;
         long doneBytes = 0, lastProgMs = 0, unreadBytes = 0;
         ulong modLo = mem.ModLo, modHi = mem.ModHi;   // snelle inline-afwijzing in de hotloop
+        ulong visibleListHeader = mem.GpBase + Fields.VISIBLE_PLAYER_LIST_HEADER_RVA;
         object progLock = new();
         var regions = mem.ScanRegions.Where(r => r.size >= 0x40).ToList();
         // Cap op 8 workers: elke worker draagt een 32MB-leesbuffer, dus cores-1 werd op
@@ -274,9 +461,27 @@ internal static class Dumper
                             }
                             want = fine;
                         }
-                        for (int i = 0; i + 0x10 <= want; i += 8)
+                        for (int i = 0; i + 8 <= want; i += 8)
                         {
                             ulong vt = BitConverter.ToUInt64(buf, i);
+                            // FM's huidige zichtbare spelerslijst. Layout:
+                            // [header][aux][vector-start][vector-end], met 8 bytes per entry.
+                            // Dit is wat Genie Scout 26g als "Load shortlist" leest; het
+                            // werkt dus ook voor duizenden in-game gefilterde Interested-
+                            // resultaten en is niet afhankelijk van geselecteerde rijen.
+                            if (vt == visibleListHeader)
+                            {
+                                // The vector may continue in the next readable region or
+                                // chunk. Do not require all 24 bytes in this buffer.
+                                ulong visibleP = chunkBase + (ulong)i;
+                                ulong ls = mem.Ptr(visibleP + VisibleVectorStartOffset);
+                                ulong le = mem.Ptr(visibleP + VisibleVectorEndOffset);
+                                if (ls >= 0x300000 && le > ls && (le - ls) % 8 == 0 && (le - ls) / 8 <= 500_000)
+                                    L.VisiblePlayerLists.Add(new VisibleList(visibleP, ls, le));
+                            }
+                            // The ordinary person-object path needs at least the
+                            // 0x10-byte object header in this chunk.
+                            if (i + 0x10 > want) continue;
                             if (vt < modLo || vt >= modHi) continue;      // snelle afwijzing
                             bool inGp = mem.InGp(vt);
                             if (!inGp && !mem.InGa(vt)) continue;         // alleen DB/managed-vtables
@@ -341,7 +546,9 @@ internal static class Dumper
                         // 16 bytes overlappen met het volgende venster: een object dat precies op
                         // de chunkgrens begint viel anders in géén van beide vensters (de lus eist
                         // i+0x10 <= want). Dubbel gezien = onschuldig, de uid-checks ontdubbelen.
-                        int step = (ulong)want < size - scanned ? want - 16 : want;
+                        // Keep enough overlap for a visible-list header whose vector
+                        // pointers are just beyond the chunk boundary.
+                        int step = (ulong)want < size - scanned ? Math.Max(8, want - 32) : want;
                         scanned += (ulong)step;
                         long done = Interlocked.Add(ref doneBytes, step);
                         long now = sw.ElapsedMilliseconds;
@@ -376,6 +583,8 @@ internal static class Dumper
             foreach (var kv in L.OffsetHist) offsetHist[kv.Key] = offsetHist.GetValueOrDefault(kv.Key) + kv.Value;
             foreach (var kv in L.AllOffHist) allOffHist[kv.Key] = allOffHist.GetValueOrDefault(kv.Key) + kv.Value;
             clubObjs.AddRange(L.ClubObjs);
+            foreach (var v in L.VisiblePlayerLists)
+                if (!visiblePlayerLists.Contains(v)) visiblePlayerLists.Add(v);
             managers.AddRange(L.Managers);
             candidates += L.Candidates; vtGp += L.VtGp; women += L.Women;
         }
@@ -397,6 +606,44 @@ internal static class Dumper
             (ScanDb == 2 ? "beide (niets overgeslagen)" : ScanDb == 1 ? $"vrouwen ({women:N0} mannen overgeslagen)" : $"mannen ({women:N0} vrouwen overgeslagen)"));
         Dumper.AllOffHist = allOffHist;
         Dumper.VtGp = vtGp;
+
+        // Los de gevonden zichtbare-lijstkandidaten op naar database-UID's. Bij FM26 zijn
+        // entries doorgaans rechtstreekse person/player-objecten; de korte probe vangt een
+        // eventuele wrapper af. Kies de kandidaat met de meeste geldige spelershits.
+        // If the fast shortlist route already identified the active object, keep
+        // using that exact object. This prevents a larger stale/unfiltered result
+        // vector from winning merely because it contains more players.
+        var cachedCandidate = visiblePlayerLists.FirstOrDefault(x => x.Object == CachedVisibleList);
+        if (cachedCandidate.Object != 0)
+        {
+            var ids = new HashSet<uint>(ReadVisiblePlayerIds(mem, cachedCandidate));
+            GameShortlist = ids;
+            CachedVisibleList = cachedCandidate.Object;
+            GameShortlistFound = true;
+        }
+        else foreach (var candidate in visiblePlayerLists)
+        {
+            var ids = new HashSet<uint>();
+            ulong count = (candidate.End - candidate.Start) / 8;
+            for (ulong i = 0; i < count; i++)
+            {
+                ulong entry = mem.Ptr(candidate.Start + i * 8);
+                if (entry == 0) continue;
+                if (personToUid.TryGetValue(entry, out uint uid) && players.ContainsKey(uid))
+                { ids.Add(uid); continue; }
+                for (int off = 0; off <= 0x80; off += 8)
+                {
+                    ulong p = mem.Ptr(entry + (ulong)off);
+                    if (p != 0 && personToUid.TryGetValue(p, out uid) && players.ContainsKey(uid))
+                    { ids.Add(uid); break; }
+                }
+            }
+            if (ids.Count > GameShortlist.Count)
+            { GameShortlist = ids; CachedVisibleList = candidate.Object; GameShortlistFound = true; }
+        }
+        Plugin.Log.LogInfo(GameShortlistFound
+            ? $"In-game zichtbare shortlist: {GameShortlist.Count:N0} spelers uit {visiblePlayerLists.Count} kandidaat/kandidaten."
+            : $"In-game zichtbare shortlist niet gevonden ({visiblePlayerLists.Count} kandidaat/kandidaten). Open de gefilterde spelerslijst in FM en scan opnieuw.");
         WriteStatus("scanning", players.Count, staff.Count, null, 0.87);
 
         // ---- Squad-gebaseerde clubkoppeling (authoritatief) ----
@@ -639,6 +886,8 @@ internal static class Dumper
         int lf = Attr(m, pl + (ulong)Fields.PLAO_ATTRS + Fields.FOOT_LEFT);
         int rf = Attr(m, pl + (ulong)Fields.PLAO_ATTRS + Fields.FOOT_RIGHT);
         e.Foot = (rf >= 14 && lf >= 14) ? "Beide" : (rf >= lf ? "Rechts" : "Links");
+        e.FootLeft  = lf;
+        e.FootRight = rf;
 
         // posities
         var pos = new List<(string k, int v)>();
@@ -647,10 +896,17 @@ internal static class Dumper
             int v = m.U8(pl + (ulong)Fields.PLAO_POSITIONS + (ulong)off);
             if (v >= 1) pos.Add((key, v));
         }
+        // Full list for scoring / Best XI — every position the player has trained in.
+        e.PosArr = pos.OrderByDescending(x => x.v).Select(x => x.k).ToList();
+        foreach (var (pk, pv) in pos) e.PosProficiency[pk] = pv;  // avoid net10 SDK ToDictionary overload conflict
+
+        // Display-only: Natural/Accomplished positions (original threshold filter).
         int top = pos.Count > 0 ? pos.Max(x => x.v) : 0;
-        e.PosArr = pos.Where(x => x.v >= System.Math.Max(15, top - 2)).OrderByDescending(x => x.v).Select(x => x.k).ToList();
-        if (e.PosArr.Count == 0 && pos.Count > 0)
-            e.PosArr = pos.OrderByDescending(x => x.v).Take(1).Select(x => x.k).ToList();
+        var dispPos = pos.Where(x => x.v >= System.Math.Max(15, top - 2))
+                         .OrderByDescending(x => x.v).Select(x => x.k).ToList();
+        if (dispPos.Count == 0 && pos.Count > 0)
+            dispPos = pos.OrderByDescending(x => x.v).Take(1).Select(x => x.k).ToList();
+        e.DisplayPos = string.Join(", ", dispPos);
 
         // Marktwaarde: 0x234 is FM's echte transferwaarde (geverifieerd via offset-discovery
         // tegen in-game bedragen); 0x238 is de vraagprijs (meestal niet ingesteld).
@@ -1006,6 +1262,8 @@ internal static class Dumper
         j.Prop("myClubRep", MyClubRep);
         j.Prop("currency", "GBP");
         j.Prop("source", "FMSuperScout plugin v" + Plugin.Version);
+        j.Prop("gameShortlistFound", GameShortlistFound);
+        j.Key("gameShortlist"); j.BeginArr(); foreach (var uid in GameShortlist) j.Val((long)uid); j.EndArr();
         j.EndObj();
 
         // Voortgang 0.90→1.0 tijdens het wegschrijven (laatste ~10% van de doorlooptijd).
@@ -1056,10 +1314,19 @@ internal static class Dumper
         j.Prop("expires", p.Expires);
         if (isPlayer)
         {
-            j.Prop("pos", string.Join(", ", p.PosArr));
+            j.Prop("pos", p.DisplayPos);
             j.Key("posArr"); j.BeginArr(); foreach (var x in p.PosArr) j.Val(x); j.EndArr();
+            if (p.PosProficiency.Count > 0)
+            {
+                j.Key("posProficiency"); j.BeginObj();
+                foreach (var kv in p.PosProficiency.OrderByDescending(kv => kv.Value))
+                    j.Prop(kv.Key, (long)kv.Value);
+                j.EndObj();
+            }
             if (p.TeamType >= 0) j.Prop("teamType", p.TeamType);   // 0=1e, ~3=reserves, ≥10=jeugd
             j.Prop("foot", p.Foot);
+            j.Prop("footLeft",  p.FootLeft);
+            j.Prop("footRight", p.FootRight);
             if (p.Height > 0) j.Prop("height", p.Height);
             Money(j, "value", p.Value);
             // Vraagprijs = waardeveld. Een los opgeslagen "echte vraagprijs" bestaat niet:
@@ -1214,7 +1481,11 @@ internal sealed class Person
     public ushort Pa;
     public int Height;
     public string Foot;
+    public int FootLeft;   // raw 1-20 value; FootRight ≥ FootLeft → right-footed
+    public int FootRight;  // raw 1-20 value; ≥14 both → two-footed
     public List<string> PosArr = new();
+    public Dictionary<string, int> PosProficiency = new();  // position → proficiency (1-20), all trained positions
+    public string DisplayPos = "";                            // Natural/Accomplished only, for UI display
     public long Value;
     public long GuideValue;
     public long Wage;

@@ -217,10 +217,7 @@ real €15.8M. This makes the separate estimate largely redundant, but it stays 
 
 **Big calibration 14-07** (`tools/value-calib.js`, 55 players from Telstar-€28K to Mbappé-€300M,
 in-game ranges supplied by mavarobli): **54/55 correct**, our value (×1.16 £→€) falls
-within FM's displayed transfer value range, apart from rounding edges. Bonus discovery:
-for `listed` players with a fixed asking price set by the club, the value field is
-**exactly** equal to it (4/4, ±1%) → the app now shows those without "~" and without rounding, and
-`feeMultiplier` no longer applies a markup/markdown. Asking price model v2: premiums moderated
+within FM's displayed transfer value range, apart from rounding edges. Earlier interpretation retracted for FM24: the native reader reads guide value, not club asking price. The fee for listed players remains an estimate because FM calculates actual demand during negotiation.
 (contract markup cap 1.35; wonderkid ≤ ×1.2; total cap 1.7 / 2.2 when not for sale; v1 went
 up to ×2.4, not supported by the calibration). Further tightening requires real "paid vs.
 value" data points. **Open outliers: Nobel Mendy and Jozhua Vertrouwd** (field €39.1M vs

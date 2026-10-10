@@ -1,4 +1,4 @@
-' FMSuperScout launcher: start de lokale server in app-modus, zonder console-venster.
+' FMSuperScout 24 launcher: start de lokale server in app-modus, zonder console-venster.
 ' De server opent zelf het chromeless Edge-venster zodra hij luistert en stopt weer
 ' zodra dat venster gesloten wordt (heartbeat).
 Option Explicit

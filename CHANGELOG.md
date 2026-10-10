@@ -5,6 +5,45 @@ new release is built, so the Unreleased section below is what the next release s
 
 ## [Unreleased]
 
+FMSuperScout 24 (app and installer 2.0.0): the FM24 edition with a native memory reader.
+
+### Added
+- Read the active in-game shortlist from FM24. Open **Scouting > Shortlist** and sync it
+  into the app; the reader validates player IDs and caches the detected list for refreshes.
+- Import and export FM shortlists as `.fmf`: exports use FM24's version-8 archive format,
+  and imports support versions 7 and 8. CSV export remains available.
+- Best XI and cover XI: choose a formation or create a custom one, set a minimum position
+  proficiency, and let the app assign each player once using their Meta for that position.
+- A club explorer with searchable, sortable club data and filters for reputation, finances,
+  transfer and wage budgets, and training/youth facilities.
+- Editable Meta weights, a built-in FMSuperScout Direct preset, JSON preset import/reset, and
+  a position selector for player Meta.
+- Bulk player selection for adding players to the app shortlist, plus a My Player view for
+  filtering to the manager's own club.
+
+### Changed
+- Replaced the FM26 plugin-based data path with a self-contained FM24 reader. It reads
+  `fm.exe` memory directly in read-only mode and provides player, staff, club, squad,
+  contract, position-proficiency, and club-finance data, with scan progress and diagnostics.
+- Expanded squad analysis with position-by-position Meta and potential comparisons against
+  the shortlist, team-group filters, and proficiency thresholds. Staff search now supports
+  advanced attribute filters, estimated training stars, and hiding non-recruitable roles.
+- Made the 2.0.0 installer, shortcuts, updater assets, local server port, and data/history
+  folder specific to FMSuperScout 24, so it can sit alongside the original edition. The
+  package now includes the native reader instead of the old BepInEx/plugin payload.
+- Saved filter settings separately for player, staff, shortlist, and My Player views, and
+  added a control to clear stored scouting data. Extended Dutch, English, French, and German
+  translations for the new UI.
+- Treat the reader's guide value as market-value input; the displayed transfer fee remains
+  an estimate because the actual asking price is determined during negotiations.
+- Removed the automated daily release-download statistics workflow and its generated history.
+
+### Fixed
+- Classify reserve team type 30 as a reserve squad, keeping those players in the correct
+  squad filters and analysis.
+- Reject shortlist IDs that are not present in the current dump and avoid adding duplicate
+  players during FMF import.
+
 ## [1.5.0] - 2026-08-04
 
 Plugin: v0.1.46. The community release: meta for everyone, four languages,

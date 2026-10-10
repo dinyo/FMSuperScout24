@@ -12,13 +12,16 @@ public class Plugin : BasePlugin
 {
     public const string Id = "com.mavarobli.fmsuperscout";
     public const string Name = "FMSuperScout";
-    public const string Version = "0.1.46";
+    public const string Version = "0.1.56";
 
     internal static new ManualLogSource Log;
 
     private static readonly string RequestFile = System.IO.Path.Combine(
         System.Environment.GetFolderPath(System.Environment.SpecialFolder.LocalApplicationData),
         "FMSuperScout", "request.flag");
+    private static readonly string ShortlistRequestFile = System.IO.Path.Combine(
+        System.Environment.GetFolderPath(System.Environment.SpecialFolder.LocalApplicationData),
+        "FMSuperScout", "shortlist-request.flag");
 
     // 0 = idle, 1 = dump bezig (Interlocked; gedeeld tussen F9/Update en de poll-thread).
     private static int _dumpBusy;
@@ -54,6 +57,16 @@ public class Plugin : BasePlugin
             System.Threading.Thread.Sleep(1000);
             try
             {
+                if (System.IO.File.Exists(ShortlistRequestFile))
+                {
+                    // Niet verwijderen wanneer een F9/full dump nog bezig is: anders
+                    // verdwijnt de klik geruisloos. Volgende poll-tick probeert opnieuw.
+                    if (System.Threading.Volatile.Read(ref _dumpBusy) == 0)
+                    {
+                        System.IO.File.Delete(ShortlistRequestFile);
+                        TryStartShortlist();
+                    }
+                }
                 if (!System.IO.File.Exists(RequestFile)) continue;
                 // De vlag bevat de aanmaaktijd (Date.now(), ms sinds epoch). Een vlag die is
                 // blijven liggen (bv. geschreven vlak voor FM afsloot) werd bij de volgende
@@ -83,6 +96,17 @@ public class Plugin : BasePlugin
             }
             catch { /* volgende tick opnieuw */ }
         }
+    }
+
+    private static void TryStartShortlist()
+    {
+        if (System.Threading.Interlocked.CompareExchange(ref _dumpBusy, 1, 0) != 0) return;
+        System.Threading.Tasks.Task.Run(() =>
+        {
+            try { Dumper.DumpVisibleShortlist(); }
+            catch (System.Exception e) { Log.LogError($"Shortlist lezen mislukt: {e}"); Dumper.WriteShortlistError(e.Message); }
+            finally { Dumper.ReleaseScan(); System.Threading.Interlocked.Exchange(ref _dumpBusy, 0); }
+        });
     }
 
     // Start een dump op een achtergrond-thread, hooguit één tegelijk (F9 én web-app).

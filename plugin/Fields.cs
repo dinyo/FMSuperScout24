@@ -13,6 +13,16 @@ internal static class Fields
     public const int SUPPORTED_MAJOR = 26;
     public const int SUPPORTED_MINOR = 3;
     public const string SUPPORTED_VERSION = "26.3";
+    // The visible-list layout below was live-verified specifically on 26.3.2
+    // (build 2329565). Shortlist sync must fail closed on another patch rather
+    // than silently interpreting a changed object layout as player IDs.
+    public const int SUPPORTED_SHORTLIST_PATCH = 2;
+
+    // Header/vtable van de tijdelijke resultaatlijst die FM gebruikt voor de spelers die
+    // op het huidige zoek-/shortlistscherm staan. De lijst zelf is een std::vector van
+    // 8-byte objectpointers. Gepind op build 2329565 (26.3.x), bevestigd tegen Genie
+    // Scout 26g build 1534: game_plugin.dll + 0x04697278.
+    public const ulong VISIBLE_PLAYER_LIST_HEADER_RVA = 0x04697278;
 
     // --- Object-header (elk DB-object) ---
     public const int OBJ_DUNI = 0x0C;         // uint32 Unique ID (UID)

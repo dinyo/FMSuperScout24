@@ -4,6 +4,8 @@ refs/
 # Build-output
 plugin/bin/
 plugin/obj/
+reader/bin/
+reader/obj/
 dist/
 installer/icon-256.png
 

@@ -82,6 +82,7 @@ internal sealed class MemScan
     private const uint PAGE_READONLY = 0x02;
     private const uint PAGE_READWRITE = 0x04;
     private const uint PAGE_WRITECOPY = 0x08;
+    private const uint PAGE_EXECUTE = 0x10;
     private const uint PAGE_EXECUTE_READ = 0x20;
     private const uint PAGE_EXECUTE_READWRITE = 0x40;
     private const uint PAGE_EXECUTE_WRITECOPY = 0x80;
@@ -100,6 +101,10 @@ internal sealed class MemScan
 
     // Regio's om te scannen naar person-objecten: private + committed + read-write (de GC-heap).
     public readonly List<(ulong start, ulong size)> ScanRegions = new();
+    // Alle readable committed regio's, uitsluitend voor de tijdelijke FM-resultaatlijst.
+    // Die lijst kan in MEM_MAPPED/readonly geheugen staan; Genie scant daarom breder dan
+    // onze snelle person-objectscan.
+    public readonly List<(ulong start, ulong size)> ReadableRegions = new();
 
     public ulong GaBase { get; private set; }   // GameAssembly.dll (Unity/C#-laag)
     public ulong GaEnd { get; private set; }
@@ -247,9 +252,17 @@ internal sealed class MemScan
     {
         if ((protect & PAGE_GUARD) != 0) return false;
         if ((protect & PAGE_NOACCESS) != 0) return false;
-        return (protect & (PAGE_READONLY | PAGE_READWRITE | PAGE_WRITECOPY |
+        return (protect & (PAGE_READONLY | PAGE_READWRITE | PAGE_WRITECOPY | PAGE_EXECUTE |
                            PAGE_EXECUTE_READ | PAGE_EXECUTE_READWRITE | PAGE_EXECUTE_WRITECOPY)) != 0;
     }
+
+    // The FM visible shortlist does not always live on an ordinary RW heap page.
+    // Genie Scout probes every committed non-guard page and lets ReadProcessMemory
+    // decide whether it is actually readable. Keep that broader rule exclusively
+    // for ReadableRegions; the expensive database-object scan remains constrained
+    // to private RW allocations by IsScannable().
+    private static bool IsShortlistProbeable(uint protect) =>
+        (protect & (PAGE_GUARD | PAGE_NOACCESS)) == 0;
 
     private static bool IsScannable(in MEMORY_BASIC_INFORMATION m)
     {
@@ -271,8 +284,14 @@ internal sealed class MemScan
             if (VirtualQueryEx(_proc, addr, out var mbi, (ulong)Marshal.SizeOf<MEMORY_BASIC_INFORMATION>()) == 0)
                 break;
             if (mbi.RegionSize == 0) break;
-            if (IsScannable(mbi) && mbi.RegionSize <= 512UL * 1024 * 1024)
-                ScanRegions.Add((mbi.BaseAddress, mbi.RegionSize));
+            if (mbi.State == MEM_COMMIT && IsShortlistProbeable(mbi.Protect))
+            {
+                ReadableRegions.Add((mbi.BaseAddress, mbi.RegionSize));
+                // Full person scan tetap menghindari satu allocation raksasa; scanner
+                // shortlist membaca region besar ini per blok 8 MB dengan aman.
+                if (IsScannable(mbi) && mbi.RegionSize <= 512UL * 1024 * 1024)
+                    ScanRegions.Add((mbi.BaseAddress, mbi.RegionSize));
+            }
             addr = mbi.BaseAddress + mbi.RegionSize;
         }
     }
@@ -313,6 +332,20 @@ internal sealed class MemScan
     {
         if (addr == 0) return false;
         return ReadProcessMemory(_proc, addr, buf, (nuint)len, out var read) && (int)read == len;
+    }
+
+    /// <summary>
+    /// Reads as much of a requested range as Windows could copy. ReadProcessMemory
+    /// returns false when a later page is inaccessible, but still reports the valid
+    /// prefix in lpNumberOfBytesRead. The shortlist scanner must inspect that prefix
+    /// instead of throwing away up to 1 MB of otherwise readable data.
+    /// </summary>
+    public int ReadBlockPartial(ulong addr, byte[] buf, int len)
+    {
+        if (addr == 0 || len <= 0) return 0;
+        ReadProcessMemory(_proc, addr, buf, (nuint)len, out var read);
+        ulong copied = (ulong)read;
+        return copied > (ulong)len ? len : (int)copied;
     }
 
     // Veilige typed reads.

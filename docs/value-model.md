@@ -1,5 +1,16 @@
 # Market value and interest estimation
 
+## FM24 native-reader fields
+
+The FM24 reader reads the game's guide/market value from `plao + 0x1B0` when the value is present.
+That stored value is not the club's asking price. The app estimates a transfer fee from the guide
+value and player/club context; it labels that figure as an estimate. FM calculates an actual demand
+through the transfer negotiation, and the reader has no verified static asking-price field.
+
+Transfer status comes from the FM24 contract flags at `contract + 0x48`: bit 3 means listed by
+request, bit 5 means set for release, bit 1 means available for loan, bit 6 blocks loan listing,
+and bit 4 means not for sale. Bit 0 is not a transfer-list flag.
+
 ## Calibration set (removed 15-07)
 
 There used to be an automatic calibration set: on every dump the server stored the players with a real

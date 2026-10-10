@@ -1,4 +1,4 @@
-' Start FMSuperScout in app-modus vanaf de broncode: eigen chromeless venster i.p.v. browser-tab.
+' Start FMSuperScout 24 in app-modus vanaf de broncode: eigen chromeless venster i.p.v. browser-tab.
 ' Gebruikt de node uit je PATH. Sluit je het venster, dan stopt de server vanzelf.
 Option Explicit
 Dim sh, fso, base
