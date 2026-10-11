@@ -274,7 +274,7 @@ function vsPlayerTable(players, group, title, kind, limit) {
         ? rows
             .map((p) => {
               const score = vsScoreForGroup(p, group);
-              return `<tr data-vs-player="${p.id}"><td>${escHtml(p.name || '–')}</td><td>${escHtml((p.posArr || []).join(', '))}</td><td>${score == null ? '–' : fmtMeta(score)}</td>${state.hideCapa ? '' : `<td>${p.ca || '–'}</td>`}<td>${getAge(p) || '–'}</td></tr>`;
+              return `<tr data-vs-player="${p.id}"><td>${escHtml(p.name || '–')}</td><td>${escHtml((p.posArr || []).join(', '))}</td><td>${score == null ? '–' : fmtMeta(score, group)}</td>${state.hideCapa ? '' : `<td>${p.ca || '–'}</td>`}<td>${getAge(p) || '–'}</td></tr>`;
             })
             .join('')
         : noRows
@@ -430,7 +430,7 @@ function vsValue(p, col, pos) {
 function vsCell(p, col, pos) {
   if (col.key === 'meta') {
     const v = vsScoreForPosition(p, pos);
-    return `<td class="num">${v == null ? '<span class="dim">–</span>' : fmtMeta(v)}</td>`;
+    return `<td class="num">${v == null ? '<span class="dim">–</span>' : fmtMeta(v, POS_TO_META_GROUP[pos] || pos)}</td>`;
   }
   if (col.render) return `<td class="${col.num ? 'num' : ''}">${col.render(p)}</td>`;
   let v = vsValue(p, col, pos);
@@ -827,9 +827,9 @@ function analysisMetricStats(players, getter) {
   }
   return count ? { min, average: total / count, max } : null;
 }
-function analysisMetricText(key, value, ageDecimals = true) {
+function analysisMetricText(key, value, ageDecimals = true, group = null) {
   if (value == null) return '–';
-  if (key === 'meta' || key === 'metapa') return fmtMeta(value);
+  if (key === 'meta' || key === 'metapa') return fmtMeta(value, group);
   if (key === 'age')
     return ageDecimals ? value.toFixed(1) : Math.round(value).toLocaleString(FORMAT_LOCALE);
   return Math.round(value).toLocaleString(FORMAT_LOCALE);
@@ -911,7 +911,7 @@ function renderAnalysisCardPlayers(players, pos, metrics) {
           .map((column) => {
             if (column.key === 'name')
               return `<td class="an-player-name">${escHtml(player.name || '?')}</td>`;
-            return `<td class="num">${analysisMetricText(column.key, valueFor(player, column), false)}</td>`;
+            return `<td class="num">${analysisMetricText(column.key, valueFor(player, column), false, POS_TO_META_GROUP[pos] || pos)}</td>`;
           })
           .join('')}</tr>`,
     )
@@ -951,7 +951,7 @@ function renderAnalysis() {
       const rows = metrics
         .map((metric) => {
           const values = analysisMetricStats(players, metric.get);
-          return `<div class="an-metric-row"><span class="an-metric-label">${escHtml(metric.label)}</span><span>${analysisMetricText(metric.key, values?.average)}</span><span>${analysisMetricText(metric.key, values?.min, false)}</span><span>${analysisMetricText(metric.key, values?.max, false)}</span></div>`;
+          return `<div class="an-metric-row"><span class="an-metric-label">${escHtml(metric.label)}</span><span>${analysisMetricText(metric.key, values?.average, true, POS_TO_META_GROUP[pos] || pos)}</span><span>${analysisMetricText(metric.key, values?.min, false, POS_TO_META_GROUP[pos] || pos)}</span><span>${analysisMetricText(metric.key, values?.max, false, POS_TO_META_GROUP[pos] || pos)}</span></div>`;
         })
         .join('');
       return `<article class="an-card"><div class="an-card-top"><span class="an-pos">${pos}</span></div>

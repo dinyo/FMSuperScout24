@@ -41,19 +41,22 @@ $('meta-preset-file').addEventListener('change', function () {
 
 $('meta-preset-load-btn').onclick = () => $('meta-preset-file').click();
 
-$('meta-preset-reset-btn').onclick = async () => {
+async function resetMetaPreset(path) {
   try {
-    const r = await fetch('/meta-presets/default_direct.json');
+    const r = await fetch(path);
     if (!r.ok) throw new Error('HTTP ' + r.status);
     loadAndApplyPreset(await r.json());
-  } catch {
-    // Network/file not found — fall back to built-in preset
-    localStorage.removeItem('fmss_meta_preset');
-    applyMetaPreset(BUILTIN_PRESET);
-    updatePresetLabel();
-    renderTable();
+  } catch (e) {
+    console.error('Failed to reset meta preset:', e);
+    alert(`${text('presetLoadError')}: ${e.message}`);
   }
-};
+}
+
+$('meta-preset-reset-btn').onclick = () =>
+  resetMetaPreset('/meta-presets/default_original.json');
+$('meta-preset-reset-gk-btn').onclick = () => resetMetaPreset('/meta-presets/default_gk_mod.json');
+$('meta-preset-reset-new-btn').onclick = () =>
+  resetMetaPreset('/meta-presets/default_new_method.json');
 
 $('meta-preset-edit-btn').onclick = () => openWeightEditor();
 
@@ -161,6 +164,7 @@ const WE_GK_SECTIONS = [
       'Leadership',
       'OffTheBall',
       'Positioning',
+      'Pressure',
       'Teamwork',
       'Vision',
       'WorkRate',
@@ -486,8 +490,10 @@ function openWeightEditor() {
       goalkeeper: text('weightGoalkeeper'),
     });
   const profRange = profTo - profFrom;
-  const cpOut = profRange > 0 ? (profTest.points / (10 * profRange)).toFixed(4) : '—';
-  const cpGk = profRange > 0 ? (profTest.points / (1 * profRange)).toFixed(4) : '—';
+  const outfieldScale = groupScale.DC ?? groupScale.FB ?? groupScale.MC ?? 10;
+  const goalkeeperScale = groupScale.GK ?? 1;
+  const cpOut = profRange > 0 ? (profTest.points / (outfieldScale * profRange)).toFixed(4) : '—';
+  const cpGk = profRange > 0 ? (profTest.points / (goalkeeperScale * profRange)).toFixed(4) : '—';
 
   const explanation = `<details style="margin:0;padding:12px 20px;background:#080e1a;border-bottom:1px solid #1e293b;font-size:12px;color:#64748b;flex-shrink:0;">
     <summary style="cursor:pointer;font-weight:bold;color:#94a3b8;user-select:none;">${text('weightHow')}</summary>
@@ -761,7 +767,7 @@ function weDownloadJson() {
   URL.revokeObjectURL(url);
 }
 
-// Async startup: try localStorage → fetch default_direct.json → BUILTIN_PRESET (already applied).
+// Async startup: try localStorage → fetch default_gk_mod.json → BUILTIN_PRESET (already applied).
 (async () => {
   // 1. Restore last-used preset from localStorage
   try {
@@ -775,14 +781,14 @@ function weDownloadJson() {
       return;
     }
   } catch {}
-  // 2. Fetch the bundled default_direct.json and apply it (upgrades BUILTIN_PRESET in place)
+  // 2. Fetch the bundled default_gk_mod.json and apply it (upgrades BUILTIN_PRESET in place)
   try {
-    const r = await fetch('/meta-presets/default_direct.json');
+    const r = await fetch('/meta-presets/default_gk_mod.json');
     if (r.ok) {
       applyMetaPreset(await r.json());
       updatePresetLabel();
       populateMetaGroupSelect();
-      // No re-render needed: default_direct.json is identical to BUILTIN_PRESET.
+      // No re-render needed: default_gk_mod.json is identical to BUILTIN_PRESET.
       return;
     }
   } catch {}

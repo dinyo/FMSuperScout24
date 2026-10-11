@@ -1,9 +1,9 @@
 {
-  "_name": "FMSuperScout Direct (empirical, all positions unified)",
-  "_source": "Attribute testing on 38-match season distance — weight = Points improvement (attr 8→20, except JumpingReach 8→17). Proficiency: Natural(20) vs Accomplished(15) = +6 pts over 38 matches.",
+  "_name": "FMSuperScout Direct (original GK weights)",
+  "_source": "Outfield weights use measured points improvement on a 38-match season (attributes from 8 to 20, except JumpingReach from 8 to 17). GK weights preserve the original measured values before the 1.8x score calibration. Proficiency: Natural(20) vs Accomplished(15) = +6 pts over 38 matches.",
   "_note": "Points-contribution engine. score = Σ (attr−8) × (pts_test / (group_scale × test_range)) + (prof−20) × coeff_prof. Baseline 8, proficiency baseline 20 (Natural = no effect). Outfield scale=10, GK scale=1.",
 
-  "name": "FMSuperScout Direct",
+  "name": "FMSuperScout Direct (original GK weights)",
 
   "baseline": 8,
   "proficiency_baseline": 20,

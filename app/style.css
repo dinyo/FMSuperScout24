@@ -3964,7 +3964,6 @@ path.dvl-v {
 #grid-body tr.bulk-sel:hover td {
   background: rgba(37, 99, 235, 0.4) !important;
 }
-#btn-export,
 #btn-export-fmf,
 #btn-import-fmf,
 #btn-clear-shortlist,
@@ -3996,7 +3995,6 @@ path.dvl-v {
   background: #38bdf8;
   color: #061a24;
 }
-#btn-export:hover,
 #btn-export-fmf:hover,
 #btn-import-fmf:hover,
 #btn-clear-shortlist:hover,

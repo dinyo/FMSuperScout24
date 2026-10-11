@@ -861,7 +861,7 @@ function fmtMoney(v) {
   if (abs >= 1e3) return sym + Math.round(val / 1e3) + 'K';
   return sym + Math.round(val);
 }
-// Show the dump's ISO date as dd-mm-yyyy. CSV export keeps ISO format for reliable spreadsheet sorting.
+// Show the dump's ISO date as dd-mm-yyyy.
 const fmtDate = (v) => {
   const s = v ? String(v) : '';
   return s.length >= 10 ? `${s.slice(8, 10)}-${s.slice(5, 7)}-${s.slice(0, 4)}` : s || '–';

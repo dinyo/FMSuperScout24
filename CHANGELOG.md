@@ -5,13 +5,45 @@ new release is built, so the Unreleased section below is what the next release s
 
 ## [Unreleased]
 
+## [1.5.0-24.1] - 2026-10-11
+
+### Added
+- Best XI now filters by first team, reserves, and youth, and shows the selected and
+  remaining players with their position proficiency and Meta scores.
+- My Player now has a saved filter for first-team, reserve, and youth players. Squad
+  analysis and comparisons against the shortlist default to first-team players.
+- Optionally display Meta and PA Meta as a percentage normalized to each position group's
+  maximum score.
+- Added the FMSuperScout New Method Meta preset, which normalizes each position group to
+  100 and blends separately normalized Zippo and FM-Arena outfield tests equally. Its
+  goalkeeper weights blend two keeper studies and include a capped Pace/Acceleration
+  synergy. Preset reset options include the original Direct weights, goalkeeper-calibrated
+  Direct weights, and the new method.
+- FMF shortlist export now downloads through the browser when its save-file picker is
+  unavailable.
+
+### Changed
+- Search now ignores accents in player, club, competition, nationality, and attribute names.
+- Split the frontend into ordered modules; installer builds now include the app scripts and
+  Meta presets. Updated the Best XI and squad-analysis layouts.
+- Calibrated the Direct preset's goalkeeper weights to bring its perfect-score scale closer
+  to the outfield scale. Removed CSV shortlist export; FMF remains available.
+
+### Fixed
+- Read club balance and budget amounts as signed values, preserving negative figures
+  instead of interpreting them as very large positive amounts.
+- Replaced garbled currency symbols, filter placeholders, and other interface labels with
+  readable text.
+
+## [1.5.0-24.0] - 2026-10-10
+
 FMSuperScout 24 (app and installer 2.0.0): the FM24 edition with a native memory reader.
 
 ### Added
 - Read the active in-game shortlist from FM24. Open **Scouting > Shortlist** and sync it
   into the app; the reader validates player IDs and caches the detected list for refreshes.
 - Import and export FM shortlists as `.fmf`: exports use FM24's version-8 archive format,
-  and imports support versions 7 and 8. CSV export remains available.
+  and imports support versions 7 and 8.
 - Best XI and cover XI: choose a formation or create a custom one, set a minimum position
   proficiency, and let the app assign each player once using their Meta for that position.
 - A club explorer with searchable, sortable club data and filters for reputation, finances,

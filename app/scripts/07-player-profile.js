@@ -615,10 +615,9 @@ function showDetail(p) {
             const positions = metaScoresByPosition(p, p.attrs);
             if (!positions.length) return '';
             const paMeta = !state.hideCapa ? metaPaScore(p) : null;
-            const bestGroup = positions.length ? positions[0].group : null;
             const paRow =
               paMeta != null
-                ? `<div data-help="metaPaHint" style="margin-bottom:2px"><b>${text('c_metapa')}<\/b> <span class="${metaClass(paMeta, bestGroup)}">${fmtMeta(paMeta)}<\/span> <span class="col-help">?<\/span><\/div>`
+                ? `<div data-help="metaPaHint" style="margin-bottom:2px"><b>${text('c_metapa')}<\/b> <span class="${metaClass(paMeta, metaPaGroup(p))}">${fmtMeta(paMeta, metaPaGroup(p))}<\/span> <span class="col-help">?<\/span><\/div>`
                 : '';
             const td = (a = 'left') => `style="text-align:${a};padding:1px 5px 1px 0"`;
             const th = (a = 'left') =>
@@ -629,7 +628,7 @@ function showDetail(p) {
                   prof != null
                     ? `<span class="${attrClass(prof)}">${prof}<\/span>`
                     : '<span class="dim">?<\/span>';
-                return `<tr><td ${td()}>${pos}<\/td><td ${td('right')}>${profCell}<\/td><td ${td('right')}><span class="${metaClass(meta, group)}">${fmtMeta(meta)}<\/span><\/td><td ${td('right')}><span class="${metaClass(effectiveMeta, group)}">${fmtMeta(effectiveMeta)}<\/span><\/td><\/tr>`;
+                return `<tr><td ${td()}>${pos}<\/td><td ${td('right')}>${profCell}<\/td><td ${td('right')}><span class="${metaClass(meta, group)}">${fmtMeta(meta, group)}<\/span><\/td><td ${td('right')}><span class="${metaClass(effectiveMeta, group)}">${fmtMeta(effectiveMeta, group)}<\/span><\/td><\/tr>`;
               })
               .join('');
             return `${paRow}<table data-help="metaHint" style="border-collapse:collapse;width:100%;font-size:0.83em;margin-top:2px"><tr><th ${th()}>Pos<\/th><th ${th('right')}>Prof<\/th><th ${th('right')}>Meta<\/th><th ${th('right')}>Eff<\/th><\/tr>${rows}<\/table>`;
@@ -1034,7 +1033,7 @@ function buildCardModel(p) {
     ca,
     pa,
     hideNum,
-    hexNum: state.hideMeta ? null : meta != null ? fmtMeta(meta) : '–',
+    hexNum: state.hideMeta ? null : meta != null ? fmtMeta(meta, metaGroup(p)) : '\u2013',
     groups: cardGroups(p, isGk),
     roles,
     value: ev.v > 0 ? (ev.est ? '~' : '') + fmtMoney(ev.v) : '–',

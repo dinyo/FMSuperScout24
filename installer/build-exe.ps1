@@ -24,9 +24,8 @@ $viewer = Join-Path $stage 'viewer'
 $reader = Join-Path $stage 'reader'
 New-Item -ItemType Directory -Force -Path "$viewer\app", $reader | Out-Null
 
-foreach ($f in @('server.js', 'fmf.js', 'index.html', 'app.js', 'nations.js', 'style.css', 'logo.svg')) {
-  Copy-Item (Join-Path $repo "app\$f") -Destination "$viewer\app" -Force
-}
+# The browser app is split across app\scripts and also includes meta-presets.
+Copy-Item (Join-Path $repo 'app\*') -Destination "$viewer\app" -Recurse -Force
 foreach ($f in @('FMSuperScout24.vbs', 'icon.ico')) {
   Copy-Item (Join-Path $PSScriptRoot $f) -Destination $viewer -Force
 }

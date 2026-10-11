@@ -38,7 +38,7 @@ function loadApp() {
   const appDirectory = path.join(__dirname, '..', 'app');
   const html = fs.readFileSync(path.join(appDirectory, 'index.html'), 'utf8');
   const defaultPreset = JSON.parse(
-    fs.readFileSync(path.join(appDirectory, 'meta-presets', 'default_direct.json'), 'utf8'),
+    fs.readFileSync(path.join(appDirectory, 'meta-presets', 'default_gk_mod.json'), 'utf8'),
   );
   const scriptPaths = [...html.matchAll(/<script defer src="([^"]+)"><\/script>/g)].map(
     ([, source]) => path.join(appDirectory, source),
@@ -64,7 +64,7 @@ function loadApp() {
       status: 200,
       json: () =>
         Promise.resolve(
-          url === '/meta-presets/default_direct.json'
+          url === '/meta-presets/default_gk_mod.json'
             ? defaultPreset
             : { players: [], staff: [], meta: {}, running: false },
         ),

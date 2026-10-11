@@ -25,10 +25,8 @@ if (-not (Test-Path (Join-Path $readerOut 'FMSuperScout24.Reader.exe'))) { throw
 New-Item -ItemType Directory -Force -Path (Join-Path $pkg 'reader') | Out-Null
 Copy-Item (Join-Path $readerOut 'FMSuperScout24.Reader.exe') -Destination (Join-Path $pkg 'reader') -Force
 
-# App-bestanden (alleen wat de tool nodig heeft; geen testdata/servertooling voor devs)
-foreach ($f in @('server.js', 'fmf.js', 'index.html', 'app.js', 'nations.js', 'style.css', 'logo.svg')) {
-  Copy-Item (Join-Path $repo "app\$f") -Destination (Join-Path $pkg 'app') -Force
-}
+# App-bestanden, inclusief de opgesplitste browser-scripts en meta-presets.
+Copy-Item (Join-Path $repo 'app\*') -Destination (Join-Path $pkg 'app') -Recurse -Force
 
 # Installer-bestanden
 foreach ($f in @('FMSuperScout24.vbs', 'icon.ico', 'install.ps1', 'uninstall.ps1',

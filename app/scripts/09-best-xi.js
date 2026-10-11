@@ -440,7 +440,7 @@ function triggerBestFormationAuto() {
     showToast(
       tf('bestxi_autoToast', {
         f: best.key,
-        s: fmtMeta(xiAverageScore(best.result) ?? 0),
+        s: xiAverageDisplay(best.result),
       }),
       'check',
     );
@@ -513,6 +513,17 @@ function xiAverageScore(result) {
     ? players.reduce((sum, slot) => sum + slot.score, 0) / players.length
     : null;
 }
+function xiAverageDisplay(result) {
+  const players = (result?.lineup || []).filter(
+    (slot) => slot.player && Number.isFinite(slot.score),
+  );
+  if (!state.metaPercent) return fmtMeta(xiAverageScore(result) ?? 0);
+  if (!players.length) return '0%';
+  const average =
+    players.reduce((sum, slot) => sum + metaPercentValue(slot.score, slot.group), 0) /
+    players.length;
+  return fmtMetaPercent(average);
+}
 
 function handleXiProfThresholdChange() {
   const value = parseInt($('xi-prof-threshold')?.value, 10);
@@ -532,7 +543,7 @@ function renderXiPitch(lineup, title) {
 
   slots.forEach((slot) => {
     const player = slot.player;
-    const score = player ? fmtMeta(slot.score) : '&#8211;';
+    const score = player ? fmtMeta(slot.score, slot.group) : '&#8211;';
     const name = player ? escHtml(player.name) : escHtml(text('bestxi_vacantPost'));
     const cls = player ? metaClass(slot.score, slot.group) : '';
     const side =
@@ -574,13 +585,25 @@ function renderXiBestCard(lineup, averageScore) {
     .filter((slot) => slot.player)
     .slice()
     .sort((a, b) => (POS_RANK[a.pos] ?? 99) - (POS_RANK[b.pos] ?? 99) || (b.l || 0) - (a.l || 0));
-  const score = averageScore == null ? '<span class="dim">&#8211;</span>' : fmtMeta(averageScore);
+  const xiPlayers = (lineup || []).filter(
+    (slot) => slot.player && Number.isFinite(slot.score),
+  );
+  const averagePercent = xiPlayers.length
+    ? xiPlayers.reduce((sum, slot) => sum + metaPercentValue(slot.score, slot.group), 0) /
+      xiPlayers.length
+    : 0;
+  const score =
+    averageScore == null
+      ? '<span class="dim">&#8211;</span>'
+      : state.metaPercent
+        ? fmtMetaPercent(averagePercent)
+        : fmtMeta(averageScore);
   const list = rows
     .map(
       (slot) => `<div class="xi-best-row">
     <span class="xi-best-position">${escHtml(slot.pos || '–')}</span>
     <span class="xi-best-name" title="${escHtml(slot.player.name)}" onclick="showDetail(state.players.find(p=>p.id===${slot.player.id}))">${escHtml(slot.player.name)}</span>
-    <span class="v ${metaClass(slot.score, slot.group)}">${fmtMeta(slot.score)}</span>
+    <span class="v ${metaClass(slot.score, slot.group)}">${fmtMeta(slot.score, slot.group)}</span>
     <button type="button" class="xi-remaining-ignore" aria-label="${escHtml(text('bestxi_ignore'))}" title="${escHtml(text('bestxi_ignore'))}" onclick="xiIgnorePlayer(${slot.player.id})">&#215;</button>
   </div>`,
     )
@@ -619,7 +642,7 @@ function renderXiRemainingCard(players) {
         ({ player, proficiency, score, group }) => `<div class="xi-remaining-row">
       <span class="xi-remaining-name" title="${escHtml(player.name)}" onclick="showDetail(state.players.find(p=>p.id===${player.id}))">${escHtml(player.name)}</span>
       <span class="xi-remaining-prof">${proficiency == null ? '–' : proficiency}</span>
-      <span class="v ${score == null ? 'dim' : metaClass(score, group)}">${score == null ? '–' : fmtMeta(score)}</span>
+      <span class="v ${score == null ? 'dim' : metaClass(score, group)}">${score == null ? '–' : fmtMeta(score, group)}</span>
       <button type="button" class="xi-remaining-ignore" aria-label="${escHtml(text('bestxi_ignore'))}" title="${escHtml(text('bestxi_ignore'))}" onclick="xiIgnorePlayer(${player.id})">&#215;</button>
     </div>`,
       )

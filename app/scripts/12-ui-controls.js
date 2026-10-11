@@ -119,7 +119,6 @@ $('btn-clear').onclick = () => {
   applyFilters();
 };
 $('btn-sidebar').onclick = () => document.body.classList.toggle('sidebar-collapsed');
-$('btn-export').onclick = exportShortlist;
 $('btn-export-fmf').onclick = exportShortlistFmf;
 $('btn-clear-shortlist').onclick = clearShortlist;
 $('btn-import-fmf').onclick = () => $('input-import-fmf').click();
@@ -312,6 +311,19 @@ $('set-hidemeta').addEventListener('change', () => {
   state.hideMeta = !$('set-hidemeta').checked;
   localStorage.setItem('fmss_hidemeta', state.hideMeta ? '1' : '0');
   applyHideCapa(); // Re-render columns, filters, profile, and analysis after the visibility setting changes.
+});
+$('set-meta-percent').checked = state.metaPercent;
+$('set-meta-percent').addEventListener('change', () => {
+  state.metaPercent = $('set-meta-percent').checked;
+  localStorage.setItem('fmss_meta_percent', state.metaPercent ? '1' : '0');
+  if (state.mode === 'analysis') renderAnalysis();
+  else if (state.mode === 'bestxi') renderBestXI();
+  else if (state.mode === 'club-list') renderClubList();
+  else {
+    renderTable();
+    applyFilters();
+  }
+  if (state.selected) showDetail(state.selected);
 });
 $('set-hidecapa').checked = !state.hideCapa; // Checked means CA/PA values are visible by default.
 $('set-hidecapa').addEventListener('change', () => {

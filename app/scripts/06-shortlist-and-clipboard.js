@@ -42,61 +42,6 @@ function toggleShortlist(id) {
   const el = document.querySelector('.detail-star');
   if (el && state.selected) el.classList.toggle('on', state.shortlist.has(state.selected.id));
 }
-function exportShortlist() {
-  const ids = state.shortlist;
-  const all = state.players.filter((p) => ids.has(p.id));
-  if (!all.length) {
-    showToast(text('slEmpty'));
-    return;
-  }
-  const withCapa = !state.hideCapa; // asking price is also covered by the hidden stats toggle
-  const cols = [
-    'Name',
-    'Position',
-    'Age',
-    'Club',
-    'Nationality',
-    ...(withCapa ? ['CA', 'PA'] : []),
-    'Value(GBP)',
-    ...(withCapa ? ['AskingPrice(GBP)'] : []),
-    'Wage(GBP)',
-    'Contract',
-    'Interest',
-  ];
-  const esc = (s) => `"${String(s ?? '').replace(/"/g, '""')}"`;
-  const lines = [cols.join(',')];
-  for (const p of all) {
-    const i = interestEstimate(p);
-    lines.push(
-      [
-        p.name,
-        p.pos || jobLabel(p),
-        getAge(p),
-        p.club || '',
-        natsLabel(p),
-        ...(withCapa ? [p.ca, p.pa] : []),
-        estValue(p).v ?? '',
-        ...(withCapa ? [feeEstimate(p).v ?? ''] : []),
-        p.wage ?? '',
-        p.expires || '',
-        i ? i.label : '',
-      ]
-        .map(esc)
-        .join(','),
-    );
-  }
-  const blob = new Blob(['﻿' + lines.join('\r\n')], {
-    type: 'text/csv;charset=utf-8',
-  });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  // revoke only after the download (Firefox aborts it otherwise) — same pattern as downloadPlayerCard
-  a.download = 'fmscuperscout24-shortlist.csv';
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
-  showToast(tf('exportedCsv', { n: all.length }), 'check');
-  coffeeGlow();
-}
 function updateBulkBar() {
   const bar = $('bulk-bar');
   const n = ['players', 'shortlist', 'myplayer'].includes(state.mode) ? state.bulkSelected.size : 0;
@@ -153,33 +98,32 @@ async function exportShortlistFmf() {
     showToast(text('slEmpty'));
     return;
   }
-  if (typeof window.showSaveFilePicker !== 'function') {
-    showToast(text('fmfSavePickerUnsupported'));
-    return;
-  }
-
-  const suggested =
-    `FMSuperScout 24 ${state.meta.gameDate || ''}`.trim().replace(/[\\/:*?"<>|]/g, '_') + '.fmf';
+  const suggestedBase = `FMSuperScout 24 ${state.meta.gameDate || ''}`
+    .trim()
+    .replace(/[\\/:*?"<>|]/g, '_');
   let fileHandle;
-  try {
-    // Edge remembers the most recently used folder for this picker id.
-    fileHandle = await window.showSaveFilePicker({
-      id: 'fmf-shortlist',
-      suggestedName: suggested,
-      types: [
-        {
-          description: 'Football Manager shortlist',
-          accept: { 'application/octet-stream': ['.fmf'] },
-        },
-      ],
-    });
-  } catch (e) {
-    if (e && e.name === 'AbortError') return;
-    showToast(`${text('fmfExportError')}: ${e.message || e}`);
-    return;
+  let name = suggestedBase;
+  if (typeof window.showSaveFilePicker === 'function') {
+    try {
+      // Edge remembers the most recently used folder for this picker id.
+      fileHandle = await window.showSaveFilePicker({
+        id: 'fmf-shortlist',
+        suggestedName: `${suggestedBase}.fmf`,
+        types: [
+          {
+            description: 'Football Manager shortlist',
+            accept: { 'application/octet-stream': ['.fmf'] },
+          },
+        ],
+      });
+      name = fileHandle.name.replace(/\.fmf$/i, '') || 'FMSuperScout 24';
+    } catch (e) {
+      if (e && e.name === 'AbortError') return;
+      showToast(`${text('fmfExportError')}: ${e.message || e}`);
+      return;
+    }
   }
 
-  const name = fileHandle.name.replace(/\.fmf$/i, '') || 'FMSuperScout 24';
   try {
     const response = await fetch('/api/shortlist-fmf', {
       method: 'POST',
@@ -188,13 +132,26 @@ async function exportShortlistFmf() {
     });
     if (!response.ok) throw new Error((await response.json()).error || `HTTP ${response.status}`);
     const blob = await response.blob();
-    const writable = await fileHandle.createWritable();
-    try {
-      await writable.write(blob);
-      await writable.close();
-    } catch (e) {
-      await writable.abort().catch(() => {});
-      throw e;
+    if (fileHandle) {
+      const writable = await fileHandle.createWritable();
+      try {
+        await writable.write(blob);
+        await writable.close();
+      } catch (e) {
+        await writable.abort().catch(() => {});
+        throw e;
+      }
+    } else {
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${name}.fmf`;
+      link.hidden = true;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      // Keep the object URL alive while Firefox starts the download.
+      setTimeout(() => URL.revokeObjectURL(url), 30000);
     }
     showToast(tf('fmfExported', { n: ids.length }), 'check');
     coffeeGlow();

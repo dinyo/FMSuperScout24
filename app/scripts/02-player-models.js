@@ -737,8 +737,23 @@ const roleClass = (v) =>
   v == null ? '' : v >= 15 ? 'g5' : v >= 13 ? 'g4' : v >= 10.5 ? 'g3' : v >= 8 ? 'g2' : 'g1';
 
 // Points contribution meta display helpers.
-// fmtMeta: formats a raw points score with sign and 2 decimals (e.g. "+7.71", "-0.50").
-const fmtMeta = (v) => (v == null ? '–' : (v >= 0 ? '+' : '') + v.toFixed(2));
+// fmtMeta: formats points or their position-normalized percentage.
+// Percent scores are normalized to the position group's score with every attribute at 20
+// and Natural proficiency. Missing groups use the largest perfect score in the preset.
+function metaPercentValue(v, group = null) {
+  if (v == null) return null;
+  const max = (group && META_PRESET?.maxScores?.[group]) ?? META_PRESET?.maxScore ?? 0;
+  return max > 0 ? Math.max(0, Math.min(100, (v / max) * 100)) : 0;
+}
+const fmtMetaPercent = (v) => (v == null ? '\u2013' : `${v.toFixed(2)}%`);
+const metaDisplayValue = (v, group = null) =>
+  state.metaPercent ? metaPercentValue(v, group) : v;
+const fmtMeta = (v, group = null) =>
+  state.metaPercent
+    ? fmtMetaPercent(metaPercentValue(v, group))
+    : v == null
+      ? '\u2013'
+      : (v >= 0 ? '+' : '') + v.toFixed(2);
 // metaClass: color band for a points score. Uses precomputed thresholds[group].
 function metaClass(v, group) {
   if (v == null) return '';
@@ -783,7 +798,7 @@ const _OUTFIELD_W = {
   FreeKicks: 0.5,
 };
 
-// Built-in preset (mirrors app/meta-presets/default_direct.json).
+// Built-in preset (mirrors app/meta-presets/default_gk_mod.json).
 // Used as the synchronous fallback before the async fetch completes.
 const BUILTIN_PRESET = {
   name: 'FMSuperScout Direct',
@@ -803,17 +818,18 @@ const BUILTIN_PRESET = {
   attr_test_ranges: { JumpingReach: 9 },
   position_weights: {
     GK: {
-      Reflexes: 8,
-      Agility: 6,
-      Acceleration: 2,
-      OneOnOnes: 0.3,
-      AerialReach: 0.1,
-      CommandOfArea: 0.1,
-      Communication: 0.1,
-      Handling: 0.1,
-      Anticipation: 0.1,
-      Concentration: 0.1,
-      Positioning: 0.1,
+      // 1.8x calibration aligns the all-20 GK score with the all-20 outfield score.
+      Reflexes: 14.4,
+      Agility: 10.8,
+      Acceleration: 3.6,
+      OneOnOnes: 0.54,
+      AerialReach: 0.18,
+      CommandOfArea: 0.18,
+      Communication: 0.18,
+      Handling: 0.18,
+      Anticipation: 0.18,
+      Concentration: 0.18,
+      Positioning: 0.18,
     },
     DC: _OUTFIELD_W,
     FB: _OUTFIELD_W,
@@ -858,7 +874,7 @@ const META_GROUP_LABEL = {
 };
 
 // ── Runtime meta preset ──────────────────────────────────────────────────────
-// Loaded from meta-presets/default_direct.json at startup; can be swapped
+// Loaded from meta-presets/default_gk_mod.json at startup; can be swapped
 // at runtime via the settings menu without touching source code.
 // Falls back to BUILTIN_PRESET if the fetch fails.
 let META_PRESET = null; // set by applyMetaPreset() before first render
@@ -869,6 +885,18 @@ let META_PRESET = null; // set by applyMetaPreset() before first render
 // Only the direct (points-contribution) engine is supported:
 // score = Σ (attr − baseline) × coeff[attr] + (prof − profBaseline) × coeff_prof
 // Coefficients are precomputed here from the test-data weights stored in the JSON.
+function metaSynergyContribution(synergy, getAttrValue) {
+  const attrs = synergy.attributes || [];
+  if (attrs.length !== 2) return 0;
+  const [first, second] = attrs.map(getAttrValue);
+  if (first == null || second == null) return 0;
+  const from = synergy.from ?? 12;
+  const to = synergy.to ?? 16;
+  if (to <= from) return 0;
+  const progress = (value) => Math.max(0, Math.min(1, (value - from) / (to - from)));
+  return Math.max(0, synergy.points || 0) * Math.min(progress(first), progress(second));
+}
+
 function applyMetaPreset(data) {
   if (data.baseline == null) {
     console.error(
@@ -887,11 +915,13 @@ function applyMetaPreset(data) {
   if (profTest.from != null && profTest.to != null)
     profTest.range = Math.max(1, Math.abs(profTest.to - profTest.from));
   const attrTestRanges = data.attr_test_ranges || {};
+  const synergies = data.synergies || {};
   const defaultRange = 20 - baseline; // 12 for baseline=8
 
   const coeffs = {};
   const coeff_prof = {};
   const thresholds = {};
+  const maxScores = {};
 
   for (const [g, Wg] of Object.entries(W)) {
     const scale = groupScale[g] ?? 10;
@@ -941,7 +971,42 @@ function applyMetaPreset(data) {
           )
         : (V - baseline) * c;
     const sumForV = (V) => Object.values(gCoeffs).reduce((s, c) => s + clampContrib(V, c), 0);
-    thresholds[g] = [0, sumForV(11), sumForV(14), sumForV(17)];
+    const gSynergies = Array.isArray(synergies[g]) ? synergies[g] : [];
+    const synergyForV = (V) =>
+      gSynergies.reduce((sum, synergy) => sum + metaSynergyContribution(synergy, () => V), 0);
+    thresholds[g] = [0, ...[11, 14, 17].map((value) => sumForV(value) + synergyForV(value))];
+
+    // Find the perfect attribute contribution, allowing harmful attributes to be at 1.
+    const maxForCoeff = (c) => {
+      let max = -Infinity;
+      for (let value = 1; value <= 20; value++) max = Math.max(max, clampContrib(value, c));
+      return Number.isFinite(max) ? max : 0;
+    };
+    const cp = coeff_prof[g];
+    const profAtNatural = (() => {
+      if (!Array.isArray(cp)) return (20 - profBaseline) * cp;
+      let sum = cp.reduce(
+        (total, { from, to, coeff }) =>
+          total +
+          (Math.max(from, Math.min(to, 20)) -
+            Math.max(from, Math.min(to, profBaseline))) *
+            coeff,
+        0,
+      );
+      const botSeg = cp[cp.length - 1];
+      if (botSeg && botSeg.from > 1) {
+        const extTo = botSeg.from - 1;
+        sum +=
+          (Math.max(1, Math.min(extTo, 20)) -
+            Math.max(1, Math.min(extTo, profBaseline))) *
+          botSeg.coeff;
+      }
+      return sum;
+    })();
+    maxScores[g] =
+      Object.values(gCoeffs).reduce((sum, c) => sum + maxForCoeff(c), 0) +
+      gSynergies.reduce((sum, synergy) => sum + Math.max(0, synergy.points || 0), 0) +
+      profAtNatural;
   }
 
   META_PRESET = {
@@ -951,7 +1016,10 @@ function applyMetaPreset(data) {
     profBaseline,
     coeffs,
     coeff_prof,
+    synergies,
     thresholds,
+    maxScores,
+    maxScore: Math.max(0, ...Object.values(maxScores)),
     // player_fields: attr key → field name on the player object.
     playerFields: data.player_fields || {},
     raw: data,
@@ -965,6 +1033,7 @@ function applyMetaPreset(data) {
       delete p._meta;
       delete p._metaPa;
       delete p._metaGroup;
+      delete p._metaPaGroup;
     }
   }
 }
@@ -1005,18 +1074,18 @@ function pointsContribution(p, attrs, group) {
   if (!gCoeffs) return null;
   const baseline = META_PRESET.baseline ?? 8;
   const playerFields = META_PRESET.playerFields;
+  const getAttrValue = (attr) => {
+    if (attr === 'Pressure') return p.pressure > 0 ? p.pressure : null;
+    if (playerFields[attr] !== undefined) {
+      const raw = p[playerFields[attr]];
+      return raw != null && raw > 0 && raw <= 20 ? raw : null;
+    }
+    return attrs ? (attrs[attr] != null ? attrs[attr] : null) : null;
+  };
   let sum = 0,
     hasAny = false;
   for (const [attr, coeff] of Object.entries(gCoeffs)) {
-    let v;
-    if (attr === 'Pressure') {
-      v = p.pressure > 0 ? p.pressure : null;
-    } else if (playerFields[attr] !== undefined) {
-      const raw = p[playerFields[attr]];
-      v = raw != null && raw > 0 && raw <= 20 ? raw : null;
-    } else {
-      v = attrs ? (attrs[attr] != null ? attrs[attr] : null) : null;
-    }
+    const v = getAttrValue(attr);
     if (v == null) continue;
     if (Array.isArray(coeff)) {
       for (const { from, to, coeff: c } of coeff) {
@@ -1026,6 +1095,11 @@ function pointsContribution(p, attrs, group) {
       sum += (v - baseline) * coeff;
     }
     hasAny = true;
+  }
+  for (const synergy of META_PRESET.synergies?.[group] || []) {
+    const bonus = metaSynergyContribution(synergy, getAttrValue);
+    sum += bonus;
+    if (bonus > 0) hasAny = true;
   }
   return hasAny ? sum : null;
 }
@@ -1141,30 +1215,43 @@ function metaGroup(p) {
 function metaPaScore(p) {
   if (p._metaPa !== undefined) return p._metaPa;
   const cur = metaScore(p);
-  if (cur == null) return (p._metaPa = null);
+  let group = metaGroup(p);
+  if (cur == null) {
+    p._metaPaGroup = null;
+    return (p._metaPa = null);
+  }
   const proj = projectAttrs(p);
-  if (!proj) return (p._metaPa = cur);
+  if (!proj) {
+    p._metaPaGroup = group;
+    return (p._metaPa = cur);
+  }
   const positions = metaScoresByPosition(p, proj);
   const relevant = state.metaViewPos
     ? positions.filter((e) => e.pos === state.metaViewPos)
     : positions;
-  const s = relevant.length ? relevant[0].effectiveMeta : null;
-  return (p._metaPa = s == null ? cur : Math.max(cur, s));
+  const best = relevant.length ? relevant[0] : null;
+  if (best && best.effectiveMeta > cur) group = best.group;
+  p._metaPaGroup = group;
+  return (p._metaPa = best ? Math.max(cur, best.effectiveMeta) : cur);
 }
-
+function metaPaGroup(p) {
+  if (p._metaPaGroup !== undefined) return p._metaPaGroup;
+  metaPaScore(p);
+  return p._metaPaGroup;
+}
 function metaHtml(p) {
   const s = metaScore(p);
   const g = metaGroup(p);
   return s == null
     ? '<span class="dim">–</span>'
-    : `<span class="${metaClass(s, g)}" data-help="metaLabel">${fmtMeta(s)}</span>`;
+    : `<span class="${metaClass(s, g)}" data-help="metaLabel">${fmtMeta(s, g)}</span>`;
 }
 function metaPaHtml(p) {
   const s = metaPaScore(p);
-  const g = metaGroup(p); // use same group as current best position
+  const g = metaPaGroup(p);
   return s == null
     ? '<span class="dim">–</span>'
-    : `<span class="${metaClass(s, g)}" data-help="metaPaHint">${fmtMeta(s)}</span>`;
+    : `<span class="${metaClass(s, g)}" data-help="metaPaHint">${fmtMeta(s, g)}</span>`;
 }
 // Use the development chart colors for growth. New players show "new" instead of a dash.
 function growthHtml(p) {

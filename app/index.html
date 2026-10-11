@@ -103,8 +103,8 @@
       <div class="set-row">
         <span>Currency</span>
         <select id="sel-cur">
-          <option value="£">£ GBP</option>
-          <option value="€">€ EUR</option>
+          <option value="Â£">Â£ GBP</option>
+          <option value="â‚¬">â‚¬ EUR</option>
           <option value="$">$ USD</option>
         </select>
       </div>
@@ -137,6 +137,9 @@
       <label class="set-row set-toggle"
         ><span>Show meta score</span> <input type="checkbox" id="set-hidemeta"
       /></label>
+      <label class="set-row set-toggle"
+        ><span>Set meta score in %</span> <input type="checkbox" id="set-meta-percent"
+      /></label>
       <div class="set-div"></div>
       <div class="set-row set-meta-preset">
         <span
@@ -163,16 +166,16 @@
             text-align: right;
           "
           title=""
-          >…</span
+          >â€¦</span
         >
       </div>
-      <div class="set-row" style="gap: 6px">
-        <button id="meta-preset-load-btn" class="set-link" style="flex: 1">Load file…</button>
-        <button id="meta-preset-reset-btn" class="set-link" style="flex: 1">
-          Reset to default
-        </button>
-        <button id="meta-preset-edit-btn" class="set-link" style="flex: 1">Edit weights</button>
+      <div class="set-row" style="gap: 12px">
+        <button id="meta-preset-load-btn" class="set-link">Load file...</button>
+        <button id="meta-preset-edit-btn" class="set-link">Edit weights</button>
       </div>
+      <div class="set-row"><button id="meta-preset-reset-btn" class="set-link">Reset to default</button></div>
+      <div class="set-row"><button id="meta-preset-reset-gk-btn" class="set-link">Reset to default (GK multiplier)</button></div>
+      <div class="set-row"><button id="meta-preset-reset-new-btn" class="set-link" type="button">Reset to new method</button></div>
       <input type="file" id="meta-preset-file" accept=".json" style="display: none" />
       <button id="btn-clear-data" class="set-danger">Clear all scouting data</button>
       <div class="set-div"></div>
@@ -181,7 +184,7 @@
         <button id="btn-updcheck" class="set-link">Check for updates</button>
       </div>
       <div class="set-note" id="upd-note"></div>
-      <button id="btn-report" class="set-report">Report a problem…</button>
+      <button id="btn-report" class="set-report">Report a problem...</button>
     </div>
 
     <div id="banner" class="hidden"></div>
@@ -476,7 +479,7 @@
         <div class="fsection" id="fg-staffrole" data-sec="staffrole" style="display: none">
           <div class="fsec-head">Staff role</div>
           <select id="f-staffrole">
-            <option value="">–</option>
+            <option value="">All</option>
           </select>
           <label class="chk" id="f-staff-recruitable-row"
             ><input type="checkbox" id="f-staff-recruitable" checked />
@@ -494,50 +497,50 @@
           <div class="frow">
             <span>Age</span>
             <div class="range2">
-              <input type="number" id="f-age-min" placeholder="–" />–<input
+              <input type="number" id="f-age-min" placeholder="Min" /> - <input
                 type="number"
                 id="f-age-max"
-                placeholder="–"
+                placeholder="Max"
               />
             </div>
           </div>
           <div class="frow capa-row">
             <span>CA</span>
             <div class="range2">
-              <input type="number" id="f-ca-min" placeholder="–" />–<input
+              <input type="number" id="f-ca-min" placeholder="Min" /> - <input
                 type="number"
                 id="f-ca-max"
-                placeholder="–"
+                placeholder="Max"
               />
             </div>
           </div>
           <div class="frow capa-row">
             <span>PA</span>
             <div class="range2">
-              <input type="number" id="f-pa-min" placeholder="–" />–<input
+              <input type="number" id="f-pa-min" placeholder="Min" /> - <input
                 type="number"
                 id="f-pa-max"
-                placeholder="–"
+                placeholder="Max"
               />
             </div>
           </div>
           <div class="frow meta-row" id="f-meta-row">
             <span>Meta <span class="col-help" data-help="metaHint">?</span></span>
             <div class="range2">
-              <input type="number" id="f-meta-min" placeholder="–" />–<input
+              <input type="number" id="f-meta-min" placeholder="Min" /> - <input
                 type="number"
                 id="f-meta-max"
-                placeholder="–"
+                placeholder="Max"
               />
             </div>
           </div>
           <div class="frow meta-row capa-row" id="f-metapa-row">
             <span>PA-meta <span class="col-help" data-help="metaPaHint">?</span></span>
             <div class="range2">
-              <input type="number" id="f-metapa-min" placeholder="–" />–<input
+              <input type="number" id="f-metapa-min" placeholder="Min" /> - <input
                 type="number"
                 id="f-metapa-max"
-                placeholder="–"
+                placeholder="Max"
               />
             </div>
           </div>
@@ -564,10 +567,10 @@
           <div class="frow">
             <span><span>Growth</span> <span class="col-help" data-help="growthHint">?</span></span>
             <div class="range2">
-              <input type="number" id="f-growth-min" placeholder="–" />–<input
+              <input type="number" id="f-growth-min" placeholder="Min" /> - <input
                 type="number"
                 id="f-growth-max"
-                placeholder="–"
+                placeholder="Max"
               />
             </div>
           </div>
@@ -582,10 +585,10 @@
           <div class="frow">
             <span>Height (cm)</span>
             <div class="range2">
-              <input type="number" id="f-height-min" placeholder="–" />–<input
+              <input type="number" id="f-height-min" placeholder="Min" /> - <input
                 type="number"
                 id="f-height-max"
-                placeholder="–"
+                placeholder="Max"
               />
             </div>
           </div>
@@ -620,7 +623,7 @@
           <div class="fgroup" id="fg-div" style="display: none">
             <label>Division</label>
             <div id="div-search">
-              <input type="text" id="f-div" autocomplete="off" placeholder="Type a competition…" />
+              <input type="text" id="f-div" autocomplete="off" placeholder="Type a competition..." />
               <div id="div-suggest" class="hidden"></div>
             </div>
           </div>
@@ -685,23 +688,6 @@
               <path d="M20.5 15a9 9 0 1 1-2.1-9.4L23 10" />
             </svg>
             <span>Get list from FM24</span>
-          </button>
-          <button id="btn-export">
-            <svg
-              viewBox="0 0 24 24"
-              width="14"
-              height="14"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-              <polyline points="7 10 12 15 17 10" />
-              <line x1="12" y1="15" x2="12" y2="3" />
-            </svg>
-            <span>Export shortlist (CSV)</span>
           </button>
           <button id="btn-export-fmf">
             <svg
@@ -768,7 +754,7 @@
         <div id="club-list-view" class="hidden">
           <div class="club-list-toolbar">
             <h2>Clubs</h2>
-            <small>— means data is not available in this dump</small>
+            <small>N/A means data is not available in this dump</small>
             <span id="club-list-count" class="dim"></span>
           </div>
           <div id="club-list-table-wrap">
@@ -811,7 +797,7 @@
             </ol>
             <div class="es-help">
               <span>Pressed New data but no data?</span>
-              <button id="es-report">Report a problem…</button>
+              <button id="es-report">Report a problem...</button>
             </div>
           </div>
           <div id="es-error" class="hidden"></div>

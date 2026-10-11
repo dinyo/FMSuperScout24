@@ -448,14 +448,14 @@ function openCompare() {
   if (!state.hideMeta)
     body += row(
       text('c_meta'),
-      players.map((p) => metaScore(p)),
-      { fmt: (v) => v.toFixed(2) },
+      players.map((p) => metaDisplayValue(metaScore(p), metaGroup(p))),
+      { fmt: (v) => (state.metaPercent ? fmtMetaPercent(v) : v.toFixed(2)) },
     );
   if (!state.hideMeta && !state.hideCapa)
     body += row(
       text('c_metapa'),
-      players.map((p) => metaPaScore(p)),
-      { fmt: (v) => v.toFixed(2) },
+      players.map((p) => metaDisplayValue(metaPaScore(p), metaPaGroup(p))),
+      { fmt: (v) => (state.metaPercent ? fmtMetaPercent(v) : v.toFixed(2)) },
     );
   body += row(
     text('cmpValue'),
