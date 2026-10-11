@@ -13,6 +13,7 @@ const state = {
   lang: ['nl', 'en', 'fr', 'de'].includes(localStorage.getItem('fmss_lang')) ? localStorage.getItem('fmss_lang') : 'en',
   showPot: false,
   myTeam: 'all',   // teamchip bij "Mijn club": all | first | res | youth
+  myPlayerTeamFilter: jread('fmss_myplayer_team_filter', ['first']),
   hideCapa: localStorage.getItem('fmss_hidecapa') === '1',
   hideMeta: localStorage.getItem('fmss_hidemeta') === '1',   // meta-score los van de overige verborgen stats
   role: localStorage.getItem('fmss_role') || '',
@@ -28,6 +29,7 @@ const state = {
   hist: null,        // {dates, refIdx, map: Map<uid,[caRef,paRef,firstIdx]>} uit /api/history/deltas
   histPeriod: localStorage.getItem('fmss_histperiod') || 'y1',
   bestXiFormation: localStorage.getItem('fmss_xi_formation') || '4-3-3',
+  xiTeamFilter: jread('fmss_xi_team_filter', ['first']),
   xiProfThreshold: (() => {
     const value = parseInt(localStorage.getItem('fmss_xi_prof_threshold') || '15', 10);
     return Number.isFinite(value) ? Math.max(1, Math.min(20, value)) : 15;
@@ -36,11 +38,11 @@ const state = {
   // a scout's preferred depth comparison does not have to be rebuilt every time.
   vsClubCounts: jread('fmss_vs_club_counts', {}),
   vsShortlistCounts: jread('fmss_vs_shortlist_counts', {}),
-  anTeamFilter: jread('fmss_an_team_filter', ['first', 'res', 'youth']),
+  anTeamFilter: jread('fmss_an_team_filter', ['first']),
   anProfThreshold: Math.max(1, Math.min(20, parseInt(localStorage.getItem('fmss_an_prof_threshold') || '15', 10) || 15)),
   anCardSort: jread('fmss_an_card_sort', { key: 'ca', dir: -1 }),
   vsSorts: jread('fmss_vs_sorts', {}),
-  vsTeamFilter: jread('fmss_vs_team_filter', ['first', 'res', 'youth']),
+  vsTeamFilter: jread('fmss_vs_team_filter', ['first']),
   vsProfThreshold: parseInt(localStorage.getItem('fmss_vs_prof_threshold') || '15', 10),
   vsColCfg: jread('fmss_vs_cols', null),
   vsColW: jread('fmss_vs_colw', {}),
@@ -223,16 +225,16 @@ const I18N = {
     metaWeightsLabel: 'Meta-gewichten', metaWeightsLoad: 'Bestand laden…', metaWeightsReset: 'Standaard herstellen',
     clearAllData: 'Scoutingdata wissen', clearAllDataConfirm: 'Alle opgeslagen spelers-, staf-, shortlist- en groeigegevens wissen voor alle carrières?', clearAllDataDone: 'Alle opgeslagen gegevens zijn gewist.', clearAllDataError: 'Opgeslagen gegevens wissen is mislukt.',
     billion: 'mld',
-    bestxi_title: 'Beste XI & Bank (Doublures)',
+    bestxi_title: 'Beste XI',
     bestxi_autoFind: 'Beste formatie zoeken', bestxi_editTactic: 'Tactiek aanpassen',
     bestxi_customOpt: '⚙️ Aangepaste Tactiek (Interactief)',
     bestxi_noClub: 'Geen club gedetecteerd. Selecteer een team via de filters (Mijn club).',
     bestxi_noPlayer: 'Geen speler', bestxi_vacantPost: 'Positie vacant',
-    bestxi_bench: '🪑 Mijn Bank (Doublures)', bestxi_left: '(Links)', bestxi_right: '(Rechts)', bestxi_minProf: 'Min. positievermogen',
+    bestxi_playersTitle: 'Beste XI-spelers', bestxi_remainingTitle: 'Overige spelers', bestxi_remainingEmpty: 'Geen resterende spelers voldoen aan dit positievermogen.', bestxi_left: '(Links)', bestxi_right: '(Rechts)', bestxi_minProf: 'Min. positievermogen',
     bestxi_avgScore: 'Gemiddelde XI meta-score:',
     bestxi_autoToast: 'Optimale formatie: {f} ({s} gem.)',
     bestxi_autoFail: 'Geen formatie gevonden', bestxi_autoNoClub: 'Geen club geselecteerd',
-    bestxi_ignore: 'Negeer', bestxi_resetIgnored: 'Reset uitgeslotenen', bestxi_ignored: 'Niet beschikbaar',
+    bestxi_ignore: 'Markeer als niet beschikbaar', bestxi_resetIgnored: 'Reset uitgeslotenen', bestxi_ignored: 'Niet beschikbaar',
     tabMyPlayers: 'Mijn speler', tabBestxi: 'Beste XI',
     tactic_title: 'Aangepaste Tactiek ({n}/11 posities)', tactic_confirm: 'Bevestig opstelling',
     tactic_maxStarters: 'Maximum 11 basisspelers bereikt.',
@@ -370,16 +372,16 @@ const I18N = {
     metaWeightsLabel: 'Meta weights', metaWeightsLoad: 'Load file…', metaWeightsReset: 'Reset to default',
     clearAllData: 'Clear all scouting data', clearAllDataConfirm: 'Delete saved player and staff data, shortlists, and growth history for all careers? This cannot be undone.', clearAllDataDone: 'All saved scouting data has been cleared.', clearAllDataError: 'Could not clear saved scouting data.',
     billion: 'B',
-    bestxi_title: 'Best XI & Bench (Cover)',
+    bestxi_title: 'Best XI',
     bestxi_autoFind: 'Find best formation', bestxi_editTactic: 'Edit tactic',
     bestxi_customOpt: '⚙️ Custom Tactic (Interactive)',
     bestxi_noClub: 'No club detected. Select a team via the filters (My club).',
     bestxi_noPlayer: 'No player', bestxi_vacantPost: 'Vacant position',
-    bestxi_bench: '🪑 My Bench (Cover)', bestxi_left: '(Left)', bestxi_right: '(Right)', bestxi_minProf: 'Min. position proficiency',
+    bestxi_playersTitle: 'Best XI players', bestxi_remainingTitle: 'Remaining players', bestxi_remainingEmpty: 'No remaining players meet this position proficiency.', bestxi_left: '(Left)', bestxi_right: '(Right)', bestxi_minProf: 'Min. position proficiency',
     bestxi_avgScore: 'Average XI meta score:',
     bestxi_autoToast: 'Optimal formation: {f} ({s} avg.)',
     bestxi_autoFail: 'Could not find a formation', bestxi_autoNoClub: 'No club selected',
-    bestxi_ignore: 'Ignore', bestxi_resetIgnored: 'Reset unavailable', bestxi_ignored: 'Unavailable',
+    bestxi_ignore: 'Set unavailable', bestxi_resetIgnored: 'Reset unavailable', bestxi_ignored: 'Unavailable',
     tabMyPlayers: 'My Player', tabBestxi: 'Best XI',
     tactic_title: 'Custom Tactic ({n}/11 positions)', tactic_confirm: 'Confirm formation',
     tactic_maxStarters: 'Maximum 11 starters reached.',
@@ -517,16 +519,16 @@ const I18N = {
     metaWeightsLabel: 'Pondération méta', metaWeightsLoad: 'Charger un fichier…', metaWeightsReset: 'Réinitialiser',
     clearAllData: 'Effacer les données de scouting', clearAllDataConfirm: 'Supprimer les données enregistrées des joueurs et du staff, les listes de présélection et l’historique de progression de toutes les carrières ? Cette action est irréversible.', clearAllDataDone: 'Toutes les données de scouting ont été supprimées.', clearAllDataError: 'Impossible de supprimer les données de scouting.',
     billion: ' Md',
-    bestxi_title: 'Meilleur XI & Banc (Doublures)',
+    bestxi_title: 'Meilleur XI',
     bestxi_autoFind: 'Trouver la meilleure compo', bestxi_editTactic: 'Modifier la tactique',
     bestxi_customOpt: '⚙️ Tactique Personnalisée (Interactive)',
     bestxi_noClub: 'Aucun club détecté. Sélectionnez une équipe via les filtres (Mon club).',
     bestxi_noPlayer: 'Aucun joueur', bestxi_vacantPost: 'Poste vacant',
-    bestxi_bench: '🪑 Mon Banc (Doublures)', bestxi_left: '(Gauche)', bestxi_right: '(Droit)', bestxi_minProf: 'Maîtrise min. du poste',
-    bestxi_avgScore: 'Score moyen Meta du XI :',
+    bestxi_playersTitle: 'Joueurs du meilleur XI', bestxi_remainingTitle: 'Joueurs restants', bestxi_remainingEmpty: 'Aucun joueur restant ne satisfait ce niveau de maîtrise.', bestxi_left: '(Gauche)', bestxi_right: '(Droit)', bestxi_minProf: 'Maîtrise min. du poste',
+    bestxi_avgScore: 'Score méta moyen du XI :',
     bestxi_autoToast: 'Compo optimale : {f} ({s} moy.)',
     bestxi_autoFail: 'Impossible de trouver une formation', bestxi_autoNoClub: 'Aucun club sélectionné',
-    bestxi_ignore: 'Exclure', bestxi_resetIgnored: 'Réintégrer tous', bestxi_ignored: 'Indisponibles',
+    bestxi_ignore: 'Rendre indisponible', bestxi_resetIgnored: 'Réintégrer tous', bestxi_ignored: 'Indisponibles',
     tabMyPlayers: 'Mon joueur', tabBestxi: 'Meilleur XI',
     tactic_title: 'Tactique Personnalisée ({n}/11 postes)', tactic_confirm: 'Confirmer la compo',
     tactic_maxStarters: 'Maximum 11 titulaires atteints.',
@@ -664,16 +666,16 @@ const I18N = {
     metaWeightsLabel: 'Meta-Gewichtung', metaWeightsLoad: 'Datei laden…', metaWeightsReset: 'Standard wiederherstellen',
     clearAllData: 'Scouting-Daten löschen', clearAllDataConfirm: 'Gespeicherte Spieler- und Mitarbeiterdaten, Shortlists und Entwicklungsverläufe für alle Karrieren löschen? Dieser Vorgang kann nicht rückgängig gemacht werden.', clearAllDataDone: 'Alle gespeicherten Scouting-Daten wurden gelöscht.', clearAllDataError: 'Gespeicherte Scouting-Daten konnten nicht gelöscht werden.',
     billion: ' Mrd.',
-    bestxi_title: 'Bestes XI & Bank (Ersatz)',
+    bestxi_title: 'Bestes XI',
     bestxi_autoFind: 'Beste Aufstellung finden', bestxi_editTactic: 'Taktik bearbeiten',
     bestxi_customOpt: '⚙️ Benutzerdefinierte Taktik (Interaktiv)',
     bestxi_noClub: 'Kein Verein erkannt. Wähle ein Team über die Filter (Mein Verein).',
     bestxi_noPlayer: 'Kein Spieler', bestxi_vacantPost: 'Freie Position',
-    bestxi_bench: '🪑 Meine Bank (Ersatz)', bestxi_left: '(Links)', bestxi_right: '(Rechts)', bestxi_minProf: 'Mindestpositionskenntnis',
+    bestxi_playersTitle: 'Spieler der besten XI', bestxi_remainingTitle: 'Übrige Spieler', bestxi_remainingEmpty: 'Kein übriger Spieler erfüllt diese Positionskenntnis.', bestxi_left: '(Links)', bestxi_right: '(Rechts)', bestxi_minProf: 'Mindestpositionskenntnis',
     bestxi_avgScore: 'Durchschnittlicher XI-Meta-Score:',
     bestxi_autoToast: 'Optimale Aufstellung: {f} ({s} Ø)',
     bestxi_autoFail: 'Keine Aufstellung gefunden', bestxi_autoNoClub: 'Kein Verein ausgewählt',
-    bestxi_ignore: 'Ignorieren', bestxi_resetIgnored: 'Alle reaktivieren', bestxi_ignored: 'Nicht verfügbar',
+    bestxi_ignore: 'Als nicht verfügbar markieren', bestxi_resetIgnored: 'Alle reaktivieren', bestxi_ignored: 'Nicht verfügbar',
     tabMyPlayers: 'Mein Spieler', tabBestxi: 'Bestes XI',
     tactic_title: 'Benutzerdefinierte Taktik ({n}/11 Positionen)', tactic_confirm: 'Aufstellung bestätigen',
     tactic_maxStarters: 'Maximum 11 Startspieler erreicht.',
@@ -1615,7 +1617,7 @@ function statusHtml(p) {
   return h || '<span class="dim">–</span>';
 }
 // Positievolgorde zoals in FM: van doel naar aanval (GK ... ST), niet alfabetisch.
-const POS_ORDER = ['GK', 'DL', 'DC', 'DR', 'WBL', 'WBR', 'DM', 'ML', 'MC', 'MR', 'AML', 'AMC', 'AMR', 'ST'];
+const POS_ORDER = ['GK', 'DR', 'DC', 'DL', 'WBR', 'WBL', 'DM', 'MR', 'MC', 'ML', 'AMR', 'AMC', 'AML', 'ST'];
 const POS_RANK = Object.fromEntries(POS_ORDER.map((p, i) => [p, i]));
 function posRank(p) {
   const prof = p.posProficiency;
@@ -1730,10 +1732,10 @@ function advDialog() {
       const kin = row.querySelector('.adv-kin'), dd = row.querySelector('.adv-dd');
       // Combobox: klikken opent de volledige (gegroepeerde) lijst, typen filtert hem.
       const buildDd = termRaw => {
-        const term = (termRaw || '').trim().toLowerCase();
+        const term = foldSearchText((termRaw || '').trim());
         const used = new Set(curRules.filter(x => x !== r && x.k).map(x => x.k));
-        const hits = catalog.filter(c => !used.has(c.k) && (!term || c.label.toLowerCase().includes(term)));
-        if (term) hits.sort((a, b) => a.label.toLowerCase().indexOf(term) - b.label.toLowerCase().indexOf(term));
+        const hits = catalog.filter(c => !used.has(c.k) && (!term || foldSearchText(c.label).includes(term)));
+        if (term) hits.sort((a, b) => foldSearchText(a.label).indexOf(term) - foldSearchText(b.label).indexOf(term));
         let html = '', lastG = null;
         for (const c of hits) {
           if (!term && c.group !== lastG) { html += `<div class="asg-h">${c.group}</div>`; lastG = c.group; }
@@ -2032,7 +2034,7 @@ function populateMetaGroupSelect() {
   const sel = $('f-meta-group');
   if (!sel) return;
   // Canonical order: GK → defenders → DM → midfielders → attackers
-  const knownPos = ['GK', 'DC', 'DL', 'DR', 'WBL', 'WBR', 'DM', 'MC', 'ML', 'MR', 'AML', 'AMC', 'AMR', 'ST'];
+  const knownPos = POS_ORDER;
   // Only show positions whose group exists in the preset
   const presetGroups = new Set(Object.keys(META_PRESET.coeffs || {}));
   const available = knownPos.filter(pos => presetGroups.has(POS_TO_META_GROUP[pos]));
@@ -2201,10 +2203,10 @@ function growthHtml(p) {
 
 // ---------- posities & veld ----------
 const PITCH = [
-  ['ST', 50, 9], ['AML', 17, 24], ['AMC', 50, 24], ['AMR', 83, 24],
-  ['ML', 11, 42], ['MC', 50, 42], ['MR', 89, 42], ['DM', 50, 57],
-  ['WBL', 11, 64], ['WBR', 89, 64], ['DL', 24, 78], ['DC', 50, 80],
-  ['DR', 76, 78], ['GK', 50, 93],
+  ['GK', 50, 93], ['DR', 76, 78], ['DC', 50, 80], ['DL', 24, 78],
+  ['WBR', 89, 64], ['WBL', 11, 64], ['DM', 50, 57], ['MR', 89, 42],
+  ['MC', 50, 42], ['ML', 11, 42], ['AMR', 83, 24], ['AMC', 50, 24],
+  ['AML', 17, 24], ['ST', 50, 9],
 ];
 const activePos = new Set();
 // Keep the sidebar filters independent for each table tab. The old shared sidebar let
@@ -2822,10 +2824,13 @@ function buildDivisions() {
   const wrap = $('fg-div');
   wrap.style.display = state.divIndex.length ? '' : 'none';
 }
-// Normaliseer voor zoeken: kleine letters, diacrieten weg, alleen letters/cijfers/spaties.
+// Fold accents for text matching while preserving punctuation and non-Latin letters.
+function foldSearchText(s) {
+  return String(s ?? '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
+}
+// Normaliseer voor fuzzy zoeken: kleine letters, diacrieten weg, alleen letters/cijfers/spaties.
 function normStr(s) {
-  return (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
-    .replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim();
+  return foldSearchText(s).replace(/[^\p{L}\p{N} ]+/gu, ' ').replace(/\s+/g, ' ').trim();
 }
 // Levenshtein (met vroege afkap) voor typo-tolerantie op woordniveau.
 function editDist(a, b, max) {
@@ -2964,7 +2969,7 @@ function monthsUntil(expires) {
 function applyFilters() {
   if (state.mode === 'club-list') { renderClubList(); $('chipbar').innerHTML = ''; return; }
   let rows = state.mode === 'staff' ? state.staff : state.players;
-  const name = $('f-name').value.trim().toLowerCase();
+  const name = foldSearchText($('f-name').value.trim());
   const ageMin = +$('f-age-min').value || 0, ageMax = +$('f-age-max').value || 99;
   const caMin = +$('f-ca-min').value || 0, caMax = +$('f-ca-max').value || 999;
   const paMin = +$('f-pa-min').value || 0, paMax = +$('f-pa-max').value || 999;
@@ -2978,7 +2983,7 @@ function applyFilters() {
   // Max. loon-invoer volgt de gekozen weergaveperiode; intern vergelijken we per week.
   const wageIn = parseMoney($('f-wage').value);
   const wage = wageIn == null ? null : wageIn / wageFactor();
-  const nat = $('f-nat').value.trim().toLowerCase();
+  const nat = foldSearchText($('f-nat').value.trim());
   // Ontwikkeling: alleen actief met historie én zichtbare CA (groei is CA-afgeleid).
   const devOn = histReady() && !state.hideCapa && state.mode !== 'staff';
   const gMinRaw = $('f-growth-min').value, gMaxRaw = $('f-growth-max').value;
@@ -2997,17 +3002,17 @@ function applyFilters() {
   const staffRole = $('f-staffrole').value;
   const onlyRecruitableStaff = state.mode === 'staff' && $('f-staff-recruitable').checked;
   const gsel = $('f-gender').value;   // '' = beide, 'm' = mannen, 'v' = vrouwen
-  const divVal = $('f-div').value.trim().toLowerCase();   // zoekbalk: substring, hoofdletterongevoelig
-  const myClub = (state.meta.myClub || '').toLowerCase();
+  const divVal = foldSearchText($('f-div').value.trim());   // substring search, case- and accent-insensitive
+  const myClub = foldSearchText(state.meta.myClub || '');
   if (state.mode === 'shortlist') rows = state.players;
 
   state.filtered = rows.filter(p => {
     if (!p.name || !p.name.trim() || p.name.trim() === '?') return false;   // naamloze stubs verbergen
       if (onlySl && !state.shortlist.has(p.id)) return false;
-    // Zoek-haystack per speler cachen: 2 toLowerCase-allocaties per rij per toetsaanslag
-    // wordt één .includes op een vaste string. Een NUL-teken (\u0000) als scheiding kan nooit in de
+    // Genormaliseerde zoektekst per speler cachen; zo gebeurt de accent-fold maar één keer.
+    // Een NUL-teken (\u0000) als scheiding kan nooit in de
     // zoekterm zitten, dus de matchsemantiek (naam óf club bevat de term) is identiek.
-    if (name && !(p._q ??= ((p.name || '') + '\u0000' + (p.club || '')).toLowerCase()).includes(name)) return false;
+    if (name && !(p._q ??= foldSearchText((p.name || '') + '\u0000' + (p.club || ''))).includes(name)) return false;
     const age = getAge(p);
     if (age < ageMin || age > ageMax) return false;
     if ((p.ca ?? 0) < caMin || (p.ca ?? 0) > caMax) return false;
@@ -3017,8 +3022,8 @@ function applyFilters() {
     if (price != null && (estValue(p).v ?? Infinity) > price) return false;
     if (fee != null && (feeEstimate(p).v ?? Infinity) > fee) return false;
     if (wage != null && (p.wage ?? Infinity) > wage) return false;
-    if (nat && !((p.nat || []).some(n => n.toLowerCase().includes(nat) || natLabel(n).toLowerCase().includes(nat))
-      || natsLabel(p).toLowerCase().includes(nat))) return false;
+    if (nat && !((p.nat || []).some(n => foldSearchText(n).includes(nat) || foldSearchText(natLabel(n)).includes(nat))
+      || foldSearchText(natsLabel(p)).includes(nat))) return false;
     if (onlyWk && !isWonderkid(p)) return false;
     if (onlyNew && !isNewSince(p)) return false;
     // Onbekende groei (nieuw, of te dunne basislijn) valt buiten een ingestelde grens,
@@ -3044,13 +3049,14 @@ function applyFilters() {
       }
     }
     // Teamchips (1e/2e/jeugd) — alleen actief samen met "Mijn club" en teamType-data (plugin v0.1.10+).
-    if (onlyMyClub && state.myTeam !== 'all' && state.mode !== 'staff') {
+    if (onlyMyClub && state.myTeam !== 'all' && state.mode !== 'staff' && state.mode !== 'myplayer') {
       const tt = p.teamType;
       const myClubId = Number(state.meta.myClubId) || 0;
       const playerClubId = Number(p.clubId) || 0;
       if (myClubId && playerClubId && playerClubId !== myClubId) return false;
       if (teamGroup(tt) !== state.myTeam) return false;
     }
+    if (state.mode === 'myplayer' && !myPlayerSelectedTeamGroups().has(teamGroup(p.teamType))) return false;
     if (contractF === 'free' && !isFree(p)) return false;
     if (contractF === 'exp6' || contractF === 'exp12') {
       const m = monthsUntil(p.expires);
@@ -3079,7 +3085,7 @@ function applyFilters() {
     if (onlyRecruitableStaff && !isRecruitableStaff(p)) return false;
     if (gsel === 'm' && p.gender === 1) return false;
     if (gsel === 'v' && p.gender !== 1) return false;
-    if (divVal && !playerDivisionLabel(p).toLowerCase().includes(divVal)) return false;
+    if (divVal && !foldSearchText(playerDivisionLabel(p)).includes(divVal)) return false;
     return true;
   });
   sortRows();
@@ -3162,7 +3168,7 @@ function buildChips() {
     else state.advF = state.advF.filter(x => x !== r);
     saveAdv();
   });
-  if ($('f-myclub').checked) add(t('myclub'), uncheck('f-myclub'));
+  if ($('f-myclub').checked && state.mode !== 'myplayer') add(t('myclub'), uncheck('f-myclub'));
   if (state.mode === 'staff' && $('f-staff-recruitable').checked)
     add(t('staffRecruitableOnly'), () => { $('f-staff-recruitable').checked = false; });
   if ($('f-shortlist').checked && state.mode !== 'shortlist' && state.mode !== 'staff') add(t('onlyshortlist'), uncheck('f-shortlist'));
@@ -5127,7 +5133,7 @@ function findOptimalLineup(squad, formation) {
       const scores = positionScores.get(p.id) || [];
       const bestPositionScore = bestMetaForSlot(p, slot, scores);
       return bestPositionScore
-        ? { player: p, score: bestPositionScore.effectiveMeta, group: bestPositionScore.group }
+        ? { player: p, score: bestPositionScore.effectiveMeta, group: bestPositionScore.group, pos: bestPositionScore.pos }
         : null;
     }).filter(Boolean).sort((a, b) => b.score - a.score).slice(0, 11);
   });
@@ -5162,8 +5168,8 @@ function findOptimalLineup(squad, formation) {
       ? candidateMaps[slotIdx].get(candidatePlayers[col].id)
       : null;
     return candidate
-      ? { player: candidate.player, score: candidate.score, group: candidate.group || groupForSlot[slotIdx], role: slot.role, t: slot.t, l: slot.l }
-      : { player: null, score: 0, group: groupForSlot[slotIdx], role: slot.role, t: slot.t, l: slot.l };
+      ? { player: candidate.player, score: candidate.score, group: candidate.group || groupForSlot[slotIdx], pos: candidate.pos, role: slot.role, t: slot.t, l: slot.l }
+      : { player: null, score: 0, group: groupForSlot[slotIdx], pos: slotFmPositions(slot)[0] || '', role: slot.role, t: slot.t, l: slot.l };
   });
 
   return { lineup, score: lineup.reduce((sum, slot) => sum + slot.score, 0) };
@@ -5192,13 +5198,14 @@ function autoDetectBestFormation(squad) {
 function triggerBestFormationAuto() {
   const myClub = (state.meta.myClub || '').toLowerCase();
   if (!myClub) { showToast(t('bestxi_autoNoClub'), 'warning'); return; }
-  const squad = state.players.filter(p => (p.club || '').toLowerCase() === myClub && !state.xiIgnored.has(p.id));
+  const squad = state.players.filter(p => (p.club || '').toLowerCase() === myClub
+    && xiTeamFilterMatches(p) && !state.xiIgnored.has(p.id));
   const best = autoDetectBestFormation(squad);
   if (best && best.key) {
     state.bestXiFormation = best.key;
     try { localStorage.setItem('fmss_xi_formation', best.key); } catch { }
     renderBestXI();
-    showToast(tf('bestxi_autoToast', { f: best.key, s: fmtMeta(best.result.score / 11) }), 'check');
+    showToast(tf('bestxi_autoToast', { f: best.key, s: fmtMeta(xiAverageScore(best.result) ?? 0) }), 'check');
   } else {
     showToast(t('bestxi_autoFail'), 'warning');
   }
@@ -5222,6 +5229,39 @@ function xiProfFilterHtml() {
   </label>`;
 }
 
+function xiTeamFilterMatches(player) {
+  return xiSelectedTeamGroups().has(teamGroup(player.teamType));
+}
+
+function xiSelectedTeamGroups() {
+  const saved = Array.isArray(state.xiTeamFilter) ? state.xiTeamFilter : ['first'];
+  return new Set(saved.filter(group => ['first', 'res', 'youth'].includes(group)));
+}
+
+function xiTeamFiltersHtml() {
+  const selected = xiSelectedTeamGroups();
+  const options = [['first', 'mt_first'], ['res', 'mt_res'], ['youth', 'mt_youth']];
+  return `<div class="xi-team-filters" role="group" aria-label="${escHtml(t('vsTeamFilter'))}">
+    <span>${escHtml(t('vsTeamFilter'))}</span>
+    ${options.map(([key, label]) => `<label class="xi-team-filter"><input type="checkbox" data-xi-team="${key}" ${selected.has(key) ? 'checked' : ''} onchange="handleXiTeamFilter('${key}', this.checked)">${escHtml(t(label))}</label>`).join('')}
+  </div>`;
+}
+
+function handleXiTeamFilter(group, checked) {
+  if (!['first', 'res', 'youth'].includes(group)) return;
+  const selected = xiSelectedTeamGroups();
+  if (checked) selected.add(group);
+  else selected.delete(group);
+  state.xiTeamFilter = [...selected];
+  try { localStorage.setItem('fmss_xi_team_filter', JSON.stringify(state.xiTeamFilter)); } catch {}
+  renderBestXI();
+}
+
+function xiAverageScore(result) {
+  const players = (result?.lineup || []).filter(slot => slot.player && Number.isFinite(slot.score));
+  return players.length ? players.reduce((sum, slot) => sum + slot.score, 0) / players.length : null;
+}
+
 function handleXiProfThresholdChange() {
   const value = parseInt($('xi-prof-threshold')?.value, 10);
   state.xiProfThreshold = Number.isFinite(value) ? Math.max(1, Math.min(20, value)) : 15;
@@ -5229,9 +5269,9 @@ function handleXiProfThresholdChange() {
   renderBestXI();
 }
 
-function renderXiPitch(lineup, title, bench = false) {
+function renderXiPitch(lineup, title) {
   const slots = lineup || [];
-  let html = `<div class="xi-pitch ${bench ? 'xi-pitch--bench' : ''}">
+  let html = `<div class="xi-pitch">
     <div class="xi-pitch-title">${escHtml(title)}</div>
     <div class="xi-field-halfway"></div><div class="xi-field-circle"></div>
     <div class="xi-field-box xi-field-box--top"></div><div class="xi-field-box xi-field-box--bottom"></div>`;
@@ -5243,16 +5283,75 @@ function renderXiPitch(lineup, title, bench = false) {
     const cls = player ? metaClass(slot.score, slot.group) : '';
     const side = slot.l < 30 ? ` ${t('bestxi_left')}` : slot.l > 70 ? ` ${t('bestxi_right')}` : '';
     const nameAction = player ? `onclick="showDetail(state.players.find(p=>p.id===${player.id}))"` : '';
-    const ignore = player ? `<button class="xi-ignore" onclick="event.stopPropagation();xiIgnorePlayer(${player.id})" title="${escHtml(t('bestxi_ignore'))}">&#215;</button>` : '';
+    const ignore = player ? `<button type="button" class="xi-ignore" onclick="event.stopPropagation();xiIgnorePlayer(${player.id})" aria-label="${escHtml(t('bestxi_ignore'))}" title="${escHtml(t('bestxi_ignore'))}">&#215;</button>` : '';
     html += `<div class="xi-player-slot ${!player ? 'xi-player-slot--vacant' : ''}" style="top:${slot.t}%;left:${slot.l}%">
-      ${ignore}
       <div class="xi-slot-score v ${cls}" ${nameAction}>${score}</div>
       <div class="xi-slot-name" title="${name}" ${nameAction}>${name}</div>
       <div class="xi-slot-role">${escHtml(roleName(slot.role) + side)}</div>
+      ${ignore}
     </div>`;
   });
 
   return html + '</div>';
+}
+
+function xiPlayerPositionsAtThreshold(player) {
+  const proficiency = player.posProficiency || {};
+  const hasProfData = Object.keys(proficiency).length > 0;
+  return POS_ORDER.filter(pos => hasProfData
+    ? Number(proficiency[pos] || 0) >= state.xiProfThreshold
+    : (player.posArr || []).includes(pos)).map(pos => ({
+      pos,
+      proficiency: hasProfData ? Number(proficiency[pos]) : null,
+      score: vsScoreForPosition(player, pos),
+      group: POS_TO_META_GROUP[pos],
+    }));
+}
+
+function renderXiBestCard(lineup, averageScore) {
+  const rows = (lineup || []).filter(slot => slot.player).slice().sort((a, b) =>
+    (POS_RANK[a.pos] ?? 99) - (POS_RANK[b.pos] ?? 99) || (b.l || 0) - (a.l || 0));
+  const score = averageScore == null ? '<span class="dim">&#8211;</span>' : fmtMeta(averageScore);
+  const list = rows.map(slot => `<div class="xi-best-row">
+    <span class="xi-best-position">${escHtml(slot.pos || '–')}</span>
+    <span class="xi-best-name" title="${escHtml(slot.player.name)}" onclick="showDetail(state.players.find(p=>p.id===${slot.player.id}))">${escHtml(slot.player.name)}</span>
+    <span class="v ${metaClass(slot.score, slot.group)}">${fmtMeta(slot.score)}</span>
+    <button type="button" class="xi-remaining-ignore" aria-label="${escHtml(t('bestxi_ignore'))}" title="${escHtml(t('bestxi_ignore'))}" onclick="xiIgnorePlayer(${slot.player.id})">&#215;</button>
+  </div>`).join('');
+  return `<section class="xi-panel-card xi-best-card">
+    <div class="xi-remaining-title"><div><strong>${escHtml(t('bestxi_playersTitle'))}</strong><small>${escHtml(t('bestxi_avgScore'))} <b>${score}</b></small></div><span>${rows.length}</span></div>
+    <div class="xi-best-columns"><span>${escHtml(t('position'))}</span><span>${escHtml(t('c_name'))}</span><span>${escHtml(t('c_meta'))}</span><span></span></div>
+    ${list ? `<div class="xi-remaining-list">${list}</div>` : `<div class="xi-remaining-empty">${escHtml(t('bestxi_noPlayer'))}</div>`}
+  </section>`;
+}
+
+function renderXiRemainingCard(players) {
+  const groups = new Map(POS_ORDER.map(pos => [pos, []]));
+  for (const player of players) {
+    for (const position of xiPlayerPositionsAtThreshold(player)) {
+      if (groups.has(position.pos)) groups.get(position.pos).push({ player, ...position });
+    }
+  }
+  for (const rows of groups.values()) {
+    rows.sort((a, b) => (b.score ?? -Infinity) - (a.score ?? -Infinity)
+      || String(a.player.name || '').localeCompare(String(b.player.name || ''), uiLocale()));
+  }
+  const visibleGroups = [...groups].filter(([, rows]) => rows.length);
+  const visiblePlayerIds = new Set(visibleGroups.flatMap(([, rows]) => rows.map(row => row.player.id)));
+  const list = visibleGroups.map(([pos, rows]) => `<section class="xi-position-list">
+    <h3>${pos}<span>${rows.length}</span></h3>
+    ${rows.map(({ player, proficiency, score, group }) => `<div class="xi-remaining-row">
+      <span class="xi-remaining-name" title="${escHtml(player.name)}" onclick="showDetail(state.players.find(p=>p.id===${player.id}))">${escHtml(player.name)}</span>
+      <span class="xi-remaining-prof">${proficiency == null ? '–' : proficiency}</span>
+      <span class="v ${score == null ? 'dim' : metaClass(score, group)}">${score == null ? '–' : fmtMeta(score)}</span>
+      <button type="button" class="xi-remaining-ignore" aria-label="${escHtml(t('bestxi_ignore'))}" title="${escHtml(t('bestxi_ignore'))}" onclick="xiIgnorePlayer(${player.id})">&#215;</button>
+    </div>`).join('')}
+  </section>`).join('');
+  return `<section class="xi-panel-card xi-remaining-card">
+    <div class="xi-remaining-title"><strong>${escHtml(t('bestxi_remainingTitle'))}</strong><span>${visiblePlayerIds.size}</span></div>
+    <div class="xi-remaining-columns"><span>${escHtml(t('c_name'))}</span><span>${escHtml(t('bestxi_minProf'))}</span><span>${escHtml(t('c_meta'))}</span><span></span></div>
+    ${list ? `<div class="xi-remaining-list">${list}</div>` : `<div class="xi-remaining-empty">${escHtml(t('bestxi_remainingEmpty'))}</div>`}
+  </section>`;
 }
 
 function renderBestXI() {
@@ -5281,12 +5380,12 @@ function renderBestXI() {
   </div>`;
 
   if (!myClub) {
-    box.innerHTML = html + `<div class="an-empty" style="text-align:center; padding: 20px;">${escHtml(t('bestxi_noClub'))}</div>`;
+    box.innerHTML = html + xiTeamFiltersHtml() + `<div class="an-empty" style="text-align:center; padding: 20px;">${escHtml(t('bestxi_noClub'))}</div>`;
     return;
   }
 
-  // Filter out ignored players from all XI/bench calculations
-  const fullSquad = state.players.filter(p => (p.club || '').toLowerCase() === myClub);
+  // Unavailable players stay visible in their own panel and are excluded from the XI.
+  const fullSquad = state.players.filter(p => (p.club || '').toLowerCase() === myClub && xiTeamFilterMatches(p));
   const squad = fullSquad.filter(p => !state.xiIgnored.has(p.id));
   const ignoredPlayers = fullSquad.filter(p => state.xiIgnored.has(p.id));
 
@@ -5294,18 +5393,14 @@ function renderBestXI() {
   if (!formation) return;
 
   const result = findOptimalLineup(squad, formation);
-  let benchResult = null;
-  if (result && result.lineup) {
-    const titularIds = new Set(result.lineup.map(slot => slot.player ? slot.player.id : null).filter(Boolean));
-    const remainingSquad = squad.filter(p => !titularIds.has(p.id));
-    benchResult = findOptimalLineup(remainingSquad, formation);
-  }
+  const titularIds = new Set((result?.lineup || []).map(slot => slot.player?.id).filter(Boolean));
+  const remainingPlayers = squad.filter(player => !titularIds.has(player.id));
 
   const layoutHtml = `<div class="xi-layout">
     ${renderXiPitch(result?.lineup, t('tabBestxi'))}
-    ${renderXiPitch(benchResult?.lineup, t('bestxi_bench'), true)}
+    ${renderXiBestCard(result?.lineup, xiAverageScore(result))}
+    ${renderXiRemainingCard(remainingPlayers)}
   </div>`;
-  let scoreFooter = result && result.lineup ? `<div style="text-align:center; color:#94a3b8; font-size:15px; margin-top:10px; font-weight:bold;">${escHtml(t('bestxi_avgScore'))} <strong style="color:#34d399; font-size:17px;">${fmtMeta(result.score / 11)}</strong></div>` : '';
 
   // Unavailable panel — shown when any player is ignored
   let ignoredHtml = '';
@@ -5323,7 +5418,7 @@ function renderBestXI() {
     </div>`;
   }
 
-  box.innerHTML = html + layoutHtml + scoreFooter + ignoredHtml;
+  box.innerHTML = html + xiTeamFiltersHtml() + layoutHtml + ignoredHtml;
 }
 
 let customSelectedSlots = jread('fmss_xi_custom', []);
@@ -5407,7 +5502,7 @@ function renderInteractiveMap() {
       pitchHtml += `<button onclick="toggleCustomSlot('${slot.line}', '${slot.side}', '${slot.role}')" style="position:absolute; top:${topPct}%; left:${leftPct}%; transform:translate(-50%, -50%); width:52px; height:42px; border-radius:8px; font-weight:bold; font-size:9px; cursor:pointer; z-index:20; ${btnStyle}">${slot.label}</button>`;
   });
   pitchHtml += `</div>`;
-  box.innerHTML = html + pitchHtml;
+  box.innerHTML = html + xiTeamFiltersHtml() + pitchHtml;
 }
 
 function toggleCustomSlot(line, side, role) {
@@ -5593,9 +5688,9 @@ function clubFilterDisplayNumber(key, club) {
 }
 function applyClubListFilters() {
   if (!$('club-filter-name')) return;
-  const name = $('club-filter-name').value.trim().toLocaleLowerCase(uiLocale());
-  const nation = $('club-filter-nation').value.trim().toLocaleLowerCase(uiLocale());
-  const league = $('club-filter-league').value.trim().toLocaleLowerCase(uiLocale());
+  const name = foldSearchText($('club-filter-name').value.trim());
+  const nation = normStr($('club-filter-nation').value.trim());
+  const league = normStr($('club-filter-league').value.trim());
   const ranges = CLUB_FILTER_RANGE_KEYS.map(key => ({
     key,
     min: document.querySelector(`[data-club-min="${key}"]`)?.value ?? '',
@@ -5603,7 +5698,7 @@ function applyClubListFilters() {
   })).filter(range => range.min !== '' || range.max !== '');
   clubListRows = (state.clubs || []).filter(c => {
     if (!c || !c.name) return false;
-    if (name && !String(c.name).toLocaleLowerCase(uiLocale()).includes(name)) return false;
+    if (name && !foldSearchText(c.name).includes(name)) return false;
     if (nation && !normStr(c.nation || '').includes(normStr(nation))) return false;
     const clubLeague = divisionInfo(c.div || c.league, c.nation, c.divisionId)?.label || c.div || c.league || '';
     if (league && !normStr(clubLeague).includes(normStr(league))) return false;
@@ -5757,12 +5852,31 @@ function vsFormation() {
 function vsSelectedTeamGroups() {
   return new Set(Array.isArray(state.vsTeamFilter)
     ? state.vsTeamFilter.filter(group => VS_TEAM_GROUPS.includes(group))
-    : VS_TEAM_GROUPS);
+    : ['first']);
 }
 function analysisSelectedTeamGroups() {
   return new Set(Array.isArray(state.anTeamFilter)
     ? state.anTeamFilter.filter(group => VS_TEAM_GROUPS.includes(group))
-    : VS_TEAM_GROUPS);
+    : ['first']);
+}
+function myPlayerSelectedTeamGroups() {
+  const selected = Array.isArray(state.myPlayerTeamFilter)
+    ? state.myPlayerTeamFilter.filter(group => VS_TEAM_GROUPS.includes(group))
+    : ['first'];
+  return new Set(selected);
+}
+function renderMyPlayerTeamFilters() {
+  const box = $('myplayer-team-filters');
+  if (!box) return;
+  box.innerHTML = renderTeamGroupFilters('myplayer-team-filter', myPlayerSelectedTeamGroups());
+  box.querySelectorAll('.myplayer-team-filter').forEach(input => input.onchange = e => {
+    const selected = myPlayerSelectedTeamGroups();
+    if (e.target.checked) selected.add(e.target.dataset.vsTeam);
+    else selected.delete(e.target.dataset.vsTeam);
+    state.myPlayerTeamFilter = [...selected];
+    try { localStorage.setItem('fmss_myplayer_team_filter', JSON.stringify(state.myPlayerTeamFilter)); } catch { }
+    applyFilters();
+  });
 }
 function vsTeamFilterMatches(p, selected) {
   return selected.size === VS_TEAM_GROUPS.length || selected.has(teamGroup(p.teamType));
@@ -5947,14 +6061,14 @@ function vsTopRows(players, col, pos, sort, limit) {
   return top.map(item => item.p);
 }
 function vsPlayerTableFull(players, pos, title, kind, limit) {
-  const cols = vsActiveCols(), id = 'shared';
-  const saved = state.vsSorts[id];
+  const cols = vsActiveCols(), id = kind;
+  const saved = state.vsSorts[id] || state.vsSorts.shared;
   const sort = saved && typeof saved === 'object' ? saved : { key: 'meta', dir: -1 };
   const col = cols.find(c => c.key === sort.key) || cols.find(c => c.key === 'meta');
   const rows = vsTopRows(players, col, pos, sort, limit);
   const widths = cols.map(c => state.vsColW[c.key] || c.w || 90);
   const colgroup = `<colgroup>${cols.map((c, i) => `<col data-vs-key="${c.key}" style="width:${widths[i]}px">`).join('')}</colgroup>`;
-  const heads = cols.map(c => `<th ${kind === 'club' ? `data-vs-col="${c.key}"` : ''} class="${c.num ? 'num ' : ''}${c.key === sort.key ? 'sorted' : ''}">${colLabel(c)}${c.key === sort.key ? (sort.dir < 0 ? ' ▼' : ' ▲') : ''}${kind === 'club' ? '<span class="vs-col-resize"></span>' : ''}</th>`).join('');
+  const heads = cols.map(c => `<th data-vs-col="${c.key}" class="${c.num ? 'num ' : ''}${c.key === sort.key ? 'sorted' : ''}">${colLabel(c)}${c.key === sort.key ? (sort.dir < 0 ? ' ▼' : ' ▲') : ''}<span class="vs-col-resize"></span></th>`).join('');
   const body = rows.length ? rows.map(p => `<tr data-vs-player="${p.id}">${cols.map(c => vsCell(p, c, pos)).join('')}</tr>`).join('') : `<tr><td colspan="${cols.length}" class="vs-empty">–</td></tr>`;
   return `<div class="vs-table-box"><div class="vs-table-head"><b>${escHtml(title)}</b></div><div class="vs-table-scroll"><table class="vs-table" style="width:${widths.reduce((a, b) => a + b, 0)}px" data-vs-pos="${pos}" data-vs-kind="${kind}">${colgroup}<thead><tr>${heads}</tr></thead><tbody>${body}</tbody></table></div></div>`;
 }
@@ -5985,7 +6099,7 @@ function renderVsShortlist(squad) {
   return `<section class="vs-shortlist"><div class="vs-head"><div><h2>${escHtml(t('vsTitle'))}</h2><p>${escHtml(t('vsDescription'))}</p><div class="vs-formation">${escHtml(t('vsFormation'))}: <b>${escHtml(vsFormationLabel())}</b> <span>· ${escHtml(t('vsFormationHint'))}</span></div></div><label>${escHtml(t('profThresholdLabel'))} <input id="vs-prof-threshold" type="number" min="1" max="20" value="${state.vsProfThreshold}"></label></div>${positions}</section>`;
 }
 
-// Layout wrapper: Club controls this shared table configuration in either view.
+// Both sides share column visibility and widths while keeping separate sort states.
 function renderVsShortlist(squad, shortlist) {
   const selectedTeams = vsSelectedTeamGroups();
   const positionSlots = vsPositionSlots();
@@ -6093,13 +6207,14 @@ function legacyRenderAnalysis() {
     renderAnalysis();
   });
   box.querySelectorAll('.vs-table th[data-vs-col]').forEach(th => th.onclick = () => {
-    const id = 'shared', old = state.vsSorts[id];
+    const id = th.closest('.vs-table')?.dataset.vsKind || 'club';
+    const old = state.vsSorts[id] || state.vsSorts.shared;
     const current = old && typeof old === 'object' ? old : { key: 'meta', dir: -1 };
     state.vsSorts[id] = { key: th.dataset.vsCol, dir: current.key === th.dataset.vsCol ? -current.dir : (['name', 'pos', 'club', 'nat'].includes(th.dataset.vsCol) ? 1 : -1) };
     try { localStorage.setItem('fmss_vs_sorts', JSON.stringify(state.vsSorts)); } catch { }
     renderAnalysis();
   });
-  box.querySelectorAll('.vs-table[data-vs-kind="club"] thead').forEach(head => head.oncontextmenu = e => { e.preventDefault(); openVsColMenu(e.clientX, e.clientY); });
+  box.querySelectorAll('.vs-table thead').forEach(head => head.oncontextmenu = e => { e.preventDefault(); openVsColMenu(e.clientX, e.clientY); });
   box.querySelectorAll('.vs-col-resize').forEach(grip => grip.onmousedown = e => {
     e.preventDefault(); e.stopPropagation();
     const th = grip.closest('th'), key = th.dataset.vsCol, startX = e.clientX, startW = th.getBoundingClientRect().width;
@@ -6107,6 +6222,7 @@ function legacyRenderAnalysis() {
     const up = () => { document.removeEventListener('mousemove', move); document.removeEventListener('mouseup', up); try { localStorage.setItem('fmss_vs_colw', JSON.stringify(state.vsColW)); } catch { } renderAnalysis(); };
     document.addEventListener('mousemove', move); document.addEventListener('mouseup', up);
   });
+  box.querySelectorAll('.vs-col-resize').forEach(grip => grip.onclick = e => e.stopPropagation());
   box.querySelectorAll('[data-vs-player]').forEach(row => row.onclick = e => {
     const player = state.players.find(p => String(p.id) === row.dataset.vsPlayer);
     if (player) showDetail(player);
@@ -6243,13 +6359,14 @@ function renderAnalysis() {
     renderAnalysis();
   });
   box.querySelectorAll('.vs-table th[data-vs-col]').forEach(th => th.onclick = () => {
-    const id = 'shared', old = state.vsSorts[id];
+    const id = th.closest('.vs-table')?.dataset.vsKind || 'club';
+    const old = state.vsSorts[id] || state.vsSorts.shared;
     const current = old && typeof old === 'object' ? old : { key: 'meta', dir: -1 };
     state.vsSorts[id] = { key: th.dataset.vsCol, dir: current.key === th.dataset.vsCol ? -current.dir : (['name', 'pos', 'club', 'nat'].includes(th.dataset.vsCol) ? 1 : -1) };
     try { localStorage.setItem('fmss_vs_sorts', JSON.stringify(state.vsSorts)); } catch { }
     renderAnalysis();
   });
-  box.querySelectorAll('.vs-table[data-vs-kind="club"] thead').forEach(head => head.oncontextmenu = e => { e.preventDefault(); openVsColMenu(e.clientX, e.clientY); });
+  box.querySelectorAll('.vs-table thead').forEach(head => head.oncontextmenu = e => { e.preventDefault(); openVsColMenu(e.clientX, e.clientY); });
   box.querySelectorAll('.vs-col-resize').forEach(grip => grip.onmousedown = e => {
     e.preventDefault(); e.stopPropagation();
     const th = grip.closest('th'), key = th.dataset.vsCol, startX = e.clientX, startW = th.getBoundingClientRect().width;
@@ -6257,6 +6374,7 @@ function renderAnalysis() {
     const up = () => { document.removeEventListener('mousemove', move); document.removeEventListener('mouseup', up); try { localStorage.setItem('fmss_vs_colw', JSON.stringify(state.vsColW)); } catch { } renderAnalysis(); };
     document.addEventListener('mousemove', move); document.addEventListener('mouseup', up);
   });
+  box.querySelectorAll('.vs-col-resize').forEach(grip => grip.onclick = e => e.stopPropagation());
   box.querySelectorAll('[data-vs-player]').forEach(row => row.onclick = e => {
     const player = state.players.find(p => String(p.id) === row.dataset.vsPlayer);
     if (player) showDetail(player);
@@ -6338,6 +6456,11 @@ $('btn-clear').onclick = () => {
   activePos.clear();
   document.querySelectorAll('.pos-node').forEach(n => n.classList.remove('on'));
   state.myTeam = 'all'; renderMyTeamChips();   // subteamchip (Eerste/Jeugd) hoort ook bij "wissen"
+  if (state.mode === 'myplayer') {
+    state.myPlayerTeamFilter = ['first'];
+    try { localStorage.setItem('fmss_myplayer_team_filter', JSON.stringify(state.myPlayerTeamFilter)); } catch { }
+    renderMyPlayerTeamFilters();
+  }
   state.presetSel = null; renderPresets();   // dropdown-label terug naar de placeholder
   applyFilters();
 };
@@ -7299,6 +7422,8 @@ function applyLang() {
   renderPresets();
   updateBulkBar();
   renderTable();   // kolomkoppen zijn vertaald → header opnieuw opbouwen
+  if (state.mode === 'myplayer') renderMyPlayerTeamFilters();
+  if (state.mode === 'bestxi') renderBestXI();
   if (state.mode === 'club-list') renderClubList();
   applyFilters();
   if (state.selected) showDetail(state.selected);
@@ -7344,7 +7469,8 @@ function setMode(mode) {
   $('f-fee-row').style.display = isStaff ? 'none' : '';
   $('f-interest-row').style.display = isStaff ? 'none' : '';
   $('f-tstatus-row').style.display = isStaff ? 'none' : '';
-  $('f-shortlist-row').style.display = isStaff ? 'none' : '';
+  $('f-myclub-row').style.display = isStaff || isMyPlayer ? 'none' : '';
+  $('f-shortlist-row').style.display = isStaff || mode === 'shortlist' ? 'none' : '';
   buildGenderFilter();   // spelers- en staflijst kunnen apart gemengd zijn
   renderDevSection();    // historie wordt alleen voor spelers bijgehouden
   renderIntakeBar();
@@ -7366,6 +7492,9 @@ function setMode(mode) {
     if (el) { el.style.display = show ? 'block' : 'none'; el.classList.toggle('hidden', !show); }
   };
 
+  toggleView('myplayer-team-filters', isMyPlayer);
+  if (isMyPlayer) renderMyPlayerTeamFilters();
+  else $('myplayer-team-filters').innerHTML = '';
   toggleView('table-wrap', !isCustomView);
   toggleView('analysis', isAn);
   toggleView('bestxi', isXi);
@@ -7432,7 +7561,7 @@ function renderMyTeamChips() {
   const myClubId = Number(state.meta.myClubId) || 0;
   const hasData = myClub && state.players.some(p => p.teamType != null &&
     (myClubId && p.clubId ? Number(p.clubId) === myClubId : (p.club || '').toLowerCase() === myClub));
-  const show = hasData && $('f-myclub').checked && state.mode !== 'staff';
+  const show = hasData && $('f-myclub').checked && state.mode !== 'staff' && state.mode !== 'myplayer';
   box.style.display = show ? '' : 'none';
   if (!show) return;
   const opts = [['all', t('mt_all')], ['first', t('mt_first')], ['res', t('mt_res')], ['youth', t('mt_youth')]];
