@@ -194,6 +194,7 @@ async function importShortlistFmf(file) {
       return;
     }
     state.shortlist = new Set(imported);
+    invalidateAnalysisData();
     localStorage.setItem('fmss_shortlist', JSON.stringify(imported));
     $('sl-count').textContent = state.shortlist.size;
     $('shortlist-sync-status').textContent =

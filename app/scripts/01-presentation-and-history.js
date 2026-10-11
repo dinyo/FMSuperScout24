@@ -1300,7 +1300,14 @@ function wageRankInClub(p) {
   }
   const arr = state._clubWages.get(p.club.toLowerCase());
   if (!arr || arr.length < 8) return null; // too few players from this club in the dump
-  return { rank: arr.findIndex((w) => w <= p.wage) + 1, n: arr.length };
+  let low = 0,
+    high = arr.length;
+  while (low < high) {
+    const middle = (low + high) >>> 1;
+    if (arr[middle] > p.wage) low = middle + 1;
+    else high = middle;
+  }
+  return { rank: low + 1, n: arr.length };
 }
 
 function feeMultiplier(p) {
@@ -1489,7 +1496,7 @@ const POS_RANK = Object.fromEntries(POS_ORDER.map((p, i) => [p, i]));
 function posRank(p) {
   const prof = p.posProficiency;
   let positions;
-  if (prof && Object.keys(prof).length > 0) {
+  if (hasPositionProficiency(p)) {
     positions = Object.entries(prof)
       .filter(([, v]) => v >= state.profThreshold)
       .map(([pos]) => pos);

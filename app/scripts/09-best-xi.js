@@ -220,25 +220,40 @@ function canPlaySlot(p, slot) {
   return false;
 }
 
-function bestMetaForSlot(p, slot, scores, profThreshold = state.xiProfThreshold) {
+function bestMetaForSlot(
+  p,
+  slot,
+  scores,
+  slotPositions,
+  profThreshold = state.xiProfThreshold,
+) {
   if (!p.attrs || !canPlaySlot(p, slot)) return null;
-  const hasProfData = p.posProficiency && Object.keys(p.posProficiency).length > 0;
-  const positionScores = scores || metaScoresByPosition(p, p.attrs);
-  const best = slotFmPositions(slot)
-    .map((pos) => positionScores.find((entry) => entry.pos === pos))
-    .filter(
-      (entry) =>
-        entry &&
-        (hasProfData
-          ? entry.prof != null && entry.prof >= profThreshold
-          : (p.posArr || []).includes(entry.pos)),
+  const hasProfData = hasPositionProficiency(p);
+  const allowedPositions = slotPositions || slotFmPositions(slot);
+  let best = null;
+  for (const pos of allowedPositions) {
+    const entry = scores.get(pos);
+    if (!entry) continue;
+    if (
+      hasProfData
+        ? entry.prof == null || entry.prof < profThreshold
+        : !(p.posArr || []).includes(pos)
     )
-    .reduce(
-      (currentBest, entry) =>
-        !currentBest || entry.effectiveMeta > currentBest.effectiveMeta ? entry : currentBest,
-      null,
-    );
+      continue;
+    if (!best || entry.effectiveMeta > best.effectiveMeta) best = entry;
+  }
   return best && Number.isFinite(best.effectiveMeta) ? best : null;
+}
+
+function indexPositionScores(squad) {
+  const byPlayer = new Map();
+  for (const p of squad) {
+    const byPosition = new Map();
+    if (p.attrs)
+      for (const entry of metaScoresByPosition(p, p.attrs)) byPosition.set(entry.pos, entry);
+    byPlayer.set(p, byPosition);
+  }
+  return byPlayer;
 }
 
 function solveMinCostAssignment(costs) {
@@ -305,19 +320,18 @@ function solveMinCostAssignment(costs) {
   return assignment;
 }
 
-function findOptimalLineup(squad, formation) {
-  // Cache effective meta by exact FM position so, for example, a DL slot uses
-  // DL meta rather than the player's best score at AML or any other position.
-  const positionScores = new Map(
-    squad.map((p) => [p.id, p.attrs ? metaScoresByPosition(p, p.attrs) : []]),
-  );
+function findOptimalLineup(squad, formation, positionScores = null) {
+  // Index exact FM positions once so slot checks do not repeatedly scan each player's scores.
+  // autoDetectBestFormation shares this index across every formation it evaluates.
+  positionScores ||= indexPositionScores(squad);
   const groupForSlot = formation.map(slotMetaGroup);
+  const positionsForSlot = formation.map(slotFmPositions);
 
-  const candidatesForSlot = formation.map((slot) => {
+  const candidatesForSlot = formation.map((slot, slotIndex) => {
     return squad
       .map((p) => {
-        const scores = positionScores.get(p.id) || [];
-        const bestPositionScore = bestMetaForSlot(p, slot, scores);
+        const scores = positionScores.get(p);
+        const bestPositionScore = bestMetaForSlot(p, slot, scores, positionsForSlot[slotIndex]);
         return bestPositionScore
           ? {
               player: p,
@@ -398,9 +412,10 @@ function autoDetectBestFormation(squad) {
     (k) => k !== 'custom' && k !== 'custom_active',
   );
 
+  const positionScores = indexPositionScores(squad);
   formationKeys.forEach((fKey) => {
     const formation = XI_FORMATIONS[fKey];
-    const res = findOptimalLineup(squad, formation);
+    const res = findOptimalLineup(squad, formation, positionScores);
     if (res && res.lineup) {
       const filledCount = res.lineup.filter((slot) => slot.player).length;
       const avg = res.score / 11;
@@ -514,15 +529,7 @@ function xiAverageScore(result) {
     : null;
 }
 function xiAverageDisplay(result) {
-  const players = (result?.lineup || []).filter(
-    (slot) => slot.player && Number.isFinite(slot.score),
-  );
-  if (!state.metaPercent) return fmtMeta(xiAverageScore(result) ?? 0);
-  if (!players.length) return '0%';
-  const average =
-    players.reduce((sum, slot) => sum + metaPercentValue(slot.score, slot.group), 0) /
-    players.length;
-  return fmtMetaPercent(average);
+  return fmtMeta(xiAverageScore(result) ?? 0);
 }
 
 function handleXiProfThresholdChange() {
@@ -567,7 +574,7 @@ function renderXiPitch(lineup, title) {
 
 function xiPlayerPositionsAtThreshold(player) {
   const proficiency = player.posProficiency || {};
-  const hasProfData = Object.keys(proficiency).length > 0;
+  const hasProfData = hasPositionProficiency(player);
   return POS_ORDER.filter((pos) =>
     hasProfData
       ? Number(proficiency[pos] || 0) >= state.xiProfThreshold
@@ -585,19 +592,10 @@ function renderXiBestCard(lineup, averageScore) {
     .filter((slot) => slot.player)
     .slice()
     .sort((a, b) => (POS_RANK[a.pos] ?? 99) - (POS_RANK[b.pos] ?? 99) || (b.l || 0) - (a.l || 0));
-  const xiPlayers = (lineup || []).filter(
-    (slot) => slot.player && Number.isFinite(slot.score),
-  );
-  const averagePercent = xiPlayers.length
-    ? xiPlayers.reduce((sum, slot) => sum + metaPercentValue(slot.score, slot.group), 0) /
-      xiPlayers.length
-    : 0;
   const score =
     averageScore == null
       ? '<span class="dim">&#8211;</span>'
-      : state.metaPercent
-        ? fmtMetaPercent(averagePercent)
-        : fmtMeta(averageScore);
+      : fmtMeta(averageScore);
   const list = rows
     .map(
       (slot) => `<div class="xi-best-row">
@@ -1007,50 +1005,63 @@ const CLUB_FILTER_RANGE_KEYS = [
   'youthRecruitment',
 ];
 const CLUB_LIST_COL_BY_KEY = new Map(CLUB_LIST_COLS.map((col) => [col.key, col]));
+const CLUB_LIST_COLLATOR = new Intl.Collator('en', {
+  numeric: true,
+  sensitivity: 'base',
+});
+const CLUB_FINANCE_SANITY_CHECKS = [
+  { keys: ['balance', 'clubBalance', 'club_balance'], limit: 100_000_000_000, absolute: true },
+  { keys: ['transferBudget', 'transfer_budget'], limit: 1_000_000_000 },
+  {
+    keys: [
+      'remainingTransfer',
+      'transferRemaining',
+      'transferBudgetRemaining',
+      'remainingTransferBudget',
+      'remaining_transfer',
+    ],
+    limit: 1_000_000_000,
+  },
+  { keys: ['wageBudget', 'wage_budget'], limit: 100_000_000 },
+  { keys: ['wageUsed', 'wage_used'], limit: 100_000_000 },
+  {
+    keys: [
+      'remainingWage',
+      'wageRemaining',
+      'wageBudgetRemaining',
+      'remainingWageBudget',
+      'remaining_wage',
+    ],
+    limit: 100_000_000,
+  },
+];
+let CLUB_FINANCE_VALID_CACHE = new WeakMap();
 function clubDataValue(club, keys) {
   for (const key of keys) if (club?.[key] != null && club[key] !== '') return club[key];
   return null;
 }
-function clubFinanceValue(club, keys) {
+function clubFinanceIsValid(club) {
+  if (!club || typeof club !== 'object') return false;
+  if (CLUB_FINANCE_VALID_CACHE.has(club)) return CLUB_FINANCE_VALID_CACHE.get(club);
   const seniorCount = state._clubSeniorSquadCounts?.get(Number(club?.id)) || 0;
-  if (seniorCount < 11) return null;
-  const financeChecks = [
-    {
-      keys: ['balance', 'clubBalance', 'club_balance'],
-      limit: 100_000_000_000,
-      absolute: true,
-    },
-    { keys: ['transferBudget', 'transfer_budget'], limit: 1_000_000_000 },
-    {
-      keys: [
-        'remainingTransfer',
-        'transferRemaining',
-        'transferBudgetRemaining',
-        'remainingTransferBudget',
-        'remaining_transfer',
-      ],
-      limit: 1_000_000_000,
-    },
-    { keys: ['wageBudget', 'wage_budget'], limit: 100_000_000 },
-    { keys: ['wageUsed', 'wage_used'], limit: 100_000_000 },
-    {
-      keys: [
-        'remainingWage',
-        'wageRemaining',
-        'wageBudgetRemaining',
-        'remainingWageBudget',
-        'remaining_wage',
-      ],
-      limit: 100_000_000,
-    },
-  ];
-  for (const check of financeChecks) {
+  if (seniorCount < 11) {
+    CLUB_FINANCE_VALID_CACHE.set(club, false);
+    return false;
+  }
+  for (const check of CLUB_FINANCE_SANITY_CHECKS) {
     const candidate = clubDataValue(club, check.keys);
     if (candidate == null || candidate === '') continue;
     const amount = Number(candidate);
-    if (!Number.isFinite(amount) || (check.absolute ? Math.abs(amount) : amount) > check.limit)
-      return null;
+    if (!Number.isFinite(amount) || (check.absolute ? Math.abs(amount) : amount) > check.limit) {
+      CLUB_FINANCE_VALID_CACHE.set(club, false);
+      return false;
+    }
   }
+  CLUB_FINANCE_VALID_CACHE.set(club, true);
+  return true;
+}
+function clubFinanceValue(club, keys) {
+  if (!clubFinanceIsValid(club)) return null;
   const value = clubDataValue(club, keys);
   if (value == null) return null;
   const amount = Number(value);
@@ -1083,41 +1094,63 @@ function renderClubListHeader() {
 }
 function sortClubListRows() {
   const col = CLUB_LIST_COLS.find((x) => x.key === clubListSortKey) || CLUB_LIST_COLS[0];
-  const collator = new Intl.Collator('en', {
-    numeric: true,
-    sensitivity: 'base',
-  });
-  clubListRows.sort((a, b) => {
-    const av = clubListValue(col, a),
-      bv = clubListValue(col, b);
+  const rows = clubListRows;
+  const values = rows.map((club) => clubListValue(col, club));
+  const order = rows.map((_, index) => index);
+  order.sort((a, b) => {
+    const av = values[a],
+      bv = values[b];
     if (av == null && bv == null) return 0;
     if (av == null) return 1;
     if (bv == null) return -1;
     const compare =
       typeof av === 'number' && typeof bv === 'number'
         ? av - bv
-        : collator.compare(String(av), String(bv));
+        : CLUB_LIST_COLLATOR.compare(String(av), String(bv));
     return compare * clubListSortDir;
   });
+  clubListRows = order.map((index) => rows[index]);
 }
 function renderClubList() {
   if (!$('club-filter-name')) return;
   applyClubListFilters();
 }
+let clubIndexPlayersSource = null,
+  clubIndexPlayersCount = -1,
+  clubIndexPlayerData = null;
+function clubIndexPlayers(players) {
+  if (players === clubIndexPlayersSource && players.length === clubIndexPlayersCount)
+    return clubIndexPlayerData;
+  const seniorPlayers = [],
+    activeClubIds = new Set();
+  for (const player of players) {
+    if (player.teamType != null && player.teamType !== 0) continue;
+    seniorPlayers.push(player);
+    const id = Number(player.clubId) || 0;
+    if (id > 0) activeClubIds.add(id);
+  }
+  clubIndexPlayersSource = players;
+  clubIndexPlayersCount = players.length;
+  clubIndexPlayerData = { seniorPlayers, activeClubIds };
+  return clubIndexPlayerData;
+}
 let clubLeagueSource = null,
+  clubLeaguePlayerCount = -1,
   clubLeaguePlayersSource = null,
   clubLeagueIndexCache = [];
 function buildClubLeagueIndex() {
   const clubs = state.clubs || [],
     players = state.players || [];
-  if (clubs === clubLeagueSource && players === clubLeaguePlayersSource)
+  if (
+    clubs === clubLeagueSource &&
+    players === clubLeaguePlayersSource &&
+    players.length === clubLeaguePlayerCount
+  )
     return clubLeagueIndexCache;
   clubLeagueSource = clubs;
   clubLeaguePlayersSource = players;
-  const seniorPlayers = players.filter((p) => p.teamType == null || p.teamType === 0);
-  const activeClubIds = new Set(
-    seniorPlayers.map((p) => Number(p.clubId) || 0).filter((id) => id > 0),
-  );
+  clubLeaguePlayerCount = players.length;
+  const { seniorPlayers, activeClubIds } = clubIndexPlayers(players);
   const byLeague = new Map();
   const add = (info, reputation, active) => {
     if (!info) return;
@@ -1163,19 +1196,22 @@ function buildClubLeagueIndex() {
   return clubLeagueIndexCache;
 }
 let clubNationSource = null,
+  clubNationPlayerCount = -1,
   clubNationPlayersSource = null,
   clubNationIndexCache = [];
 function buildClubNationIndex() {
   const clubs = state.clubs || [],
     players = state.players || [];
-  if (clubs === clubNationSource && players === clubNationPlayersSource)
+  if (
+    clubs === clubNationSource &&
+    players === clubNationPlayersSource &&
+    players.length === clubNationPlayerCount
+  )
     return clubNationIndexCache;
   clubNationSource = clubs;
   clubNationPlayersSource = players;
-  const seniorPlayers = players.filter((p) => p.teamType == null || p.teamType === 0);
-  const activeClubIds = new Set(
-    seniorPlayers.map((p) => Number(p.clubId) || 0).filter((id) => id > 0),
-  );
+  clubNationPlayerCount = players.length;
+  const { activeClubIds } = clubIndexPlayers(players);
   const byNation = new Map();
   for (const club of clubs) {
     const nation = String(club.nation || '').trim();
@@ -1238,11 +1274,14 @@ function applyClubListFilters() {
   })).filter((range) => range.min !== '' || range.max !== '');
   clubListRows = (state.clubs || []).filter((c) => {
     if (!c || !c.name) return false;
-    if (name && !foldSearchText(c.name).includes(name)) return false;
-    if (nation && !normStr(c.nation || '').includes(normStr(nation))) return false;
-    const clubLeague =
-      divisionInfo(c.div || c.league, c.nation, c.divisionId)?.label || c.div || c.league || '';
-    if (league && !normStr(clubLeague).includes(normStr(league))) return false;
+    if (name && !(c._clubNameQ ??= foldSearchText(c.name)).includes(name)) return false;
+    if (nation && !(c._clubNationQ ??= normStr(c.nation || '')).includes(nation)) return false;
+    if (league) {
+      const clubLeague =
+        c._clubLeagueLabel ??=
+          divisionInfo(c.div || c.league, c.nation, c.divisionId)?.label || c.div || c.league || '';
+      if (!(c._clubLeagueQ ??= normStr(clubLeague)).includes(league)) return false;
+    }
     for (const range of ranges) {
       const value = clubFilterDisplayNumber(range.key, c);
       if (

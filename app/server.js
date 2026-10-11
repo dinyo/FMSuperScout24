@@ -258,6 +258,7 @@ const GAME_SHORTLIST_FILE = path.join(DATA_DIR, 'shortlist-FM24.json');
 const HIST_MAX_DATES = 120; // About two years of weekly snapshots; fold older points into the baseline.
 let histCache = null,
   histCacheFile = null;
+let histEntryDateCache = new WeakMap();
 
 function histSlug(manager) {
   const s = String(manager || 'default')
@@ -281,6 +282,24 @@ function loadHist(manager) {
   histCache = h;
   histCacheFile = file;
   return h;
+}
+function historyEntryDates(entries) {
+  let dates = histEntryDateCache.get(entries);
+  if (!dates) {
+    dates = Object.keys(entries).sort();
+    histEntryDateCache.set(entries, dates);
+  }
+  return dates;
+}
+function latestHistoryIndexOnOrBefore(dates, target) {
+  let low = 0,
+    high = dates.length;
+  while (low < high) {
+    const middle = (low + high) >>> 1;
+    if (dates[middle] <= target) low = middle + 1;
+    else high = middle;
+  }
+  return low - 1;
 }
 // Last known [ca,pa,value] of a player, in date order.
 function histLastPoint(entries, dates) {
@@ -337,6 +356,8 @@ function mergeSnapshot(manager, gameDate, players) {
     h.dates = h.dates.slice(cut);
   }
 
+  // Entries are mutated as dates are added or rewound, so discard their sorted-key cache.
+  histEntryDateCache = new WeakMap();
   // Write to a temporary file and rename it atomically so a crash cannot corrupt existing history.
   fs.mkdirSync(HIST_DIR, { recursive: true });
   const file = histFile(manager);
@@ -778,15 +799,13 @@ const server = http.createServer((req, res) => {
     }
     for (const uid in h.players) {
       const e = h.players[uid];
-      // Dates per player are sparse; sorting is cheaper than expiring all the dates.
-      const keys = Object.keys(e).sort();
+      const keys = historyEntryDates(e);
       if (!keys.length) continue;
-      let ref = null;
-      for (const k of keys) {
-        if (k > since) break;
-        ref = e[k];
-      }
-      p[uid] = ref ? [ref[0], ref[1], idx.get(keys[0]) ?? 0] : [null, null, idx.get(keys[0]) ?? 0];
+      // Histories are sparse; binary search avoids scanning every saved date per player.
+      const refIndex = latestHistoryIndexOnOrBefore(keys, since);
+      const ref = refIndex >= 0 ? e[keys[refIndex]] : null;
+      const firstIndex = idx.get(keys[0]) ?? 0;
+      p[uid] = ref ? [ref[0], ref[1], firstIndex] : [null, null, firstIndex];
     }
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ dates: h.dates, ref: since, p }));

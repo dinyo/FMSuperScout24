@@ -20,7 +20,6 @@ const state = {
   myPlayerTeamFilter: jread('fmss_myplayer_team_filter', ['first']),
   hideCapa: localStorage.getItem('fmss_hidecapa') === '1',
   hideMeta: localStorage.getItem('fmss_hidemeta') === '1', // Hide the meta score independently from other hidden stats.
-  metaPercent: localStorage.getItem('fmss_meta_percent') === '1',
   role: localStorage.getItem('fmss_role') || '',
   compare: [],
   refYear: new Date().getFullYear(),
@@ -117,7 +116,6 @@ const TEXT = {
   curLabel: 'Currency',
   showHidden: 'Show hidden stats',
   showMeta: 'Show meta score',
-  metaPercent: 'Set meta score in %',
   profileMode: 'Player profile',
   profSide: 'Right side',
   profPopup: 'Popup',

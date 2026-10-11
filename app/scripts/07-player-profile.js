@@ -565,12 +565,14 @@ function profMode() {
   return localStorage.getItem('fmss_profmode') || 'side';
 }
 function closeDetail() {
+  if (state.selected) metaPositionScoresCache.delete(state.selected);
   $('detail').classList.add('hidden');
   $('detail-backdrop').classList.add('hidden');
   state.selected = null;
   renderVisible();
 }
 function showDetail(p) {
+  if (state.selected && state.selected !== p) metaPositionScoresCache.delete(state.selected);
   state.selected = p;
   renderVisible();
   const pop = profMode() === 'popup';

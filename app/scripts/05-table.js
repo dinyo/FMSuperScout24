@@ -1,4 +1,5 @@
 // ---------- per-view column order and visibility ----------
+const ROW_COLLATOR = new Intl.Collator('en');
 const modeKey = () => (state.mode === 'staff' ? 'staff' : 'players');
 function baseCols() {
   return modeKey() === 'staff' ? STAFF_COLS : PLAYER_COLS;
@@ -94,7 +95,8 @@ function reorderCol(fromKey, toKey) {
   renderTable();
 }
 function sortRows() {
-  const col = activeCols().find((c) => c.key === state.sortKey) || activeCols()[1];
+  const cols = activeCols();
+  const col = cols.find((c) => c.key === state.sortKey) || cols[1];
   if (col.star) return;
   const dir = state.sortDir;
   // Calculate each sort key once per row instead of once per comparison. This avoids repeating
@@ -102,7 +104,6 @@ function sortRows() {
   const rows = state.filtered;
   const keys = rows.map(col.get);
   const idx = rows.map((_, i) => i);
-  const coll = new Intl.Collator('en');
   idx.sort((ia, ib) => {
     const va = keys[ia],
       vb = keys[ib];
@@ -110,7 +111,7 @@ function sortRows() {
     if (va == null) return 1;
     if (vb == null) return -1;
     if (typeof va === 'number') return (va - vb) * dir;
-    return coll.compare(va, vb) * dir;
+    return ROW_COLLATOR.compare(va, vb) * dir;
   });
   state.filtered = idx.map((i) => rows[i]);
 }

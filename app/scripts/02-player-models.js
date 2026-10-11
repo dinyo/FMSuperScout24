@@ -736,24 +736,9 @@ function bestRoles(p, n = 5) {
 const roleClass = (v) =>
   v == null ? '' : v >= 15 ? 'g5' : v >= 13 ? 'g4' : v >= 10.5 ? 'g3' : v >= 8 ? 'g2' : 'g1';
 
-// Points contribution meta display helpers.
-// fmtMeta: formats points or their position-normalized percentage.
-// Percent scores are normalized to the position group's score with every attribute at 20
-// and Natural proficiency. Missing groups use the largest perfect score in the preset.
-function metaPercentValue(v, group = null) {
-  if (v == null) return null;
-  const max = (group && META_PRESET?.maxScores?.[group]) ?? META_PRESET?.maxScore ?? 0;
-  return max > 0 ? Math.max(0, Math.min(100, (v / max) * 100)) : 0;
-}
-const fmtMetaPercent = (v) => (v == null ? '\u2013' : `${v.toFixed(2)}%`);
-const metaDisplayValue = (v, group = null) =>
-  state.metaPercent ? metaPercentValue(v, group) : v;
-const fmtMeta = (v, group = null) =>
-  state.metaPercent
-    ? fmtMetaPercent(metaPercentValue(v, group))
-    : v == null
-      ? '\u2013'
-      : (v >= 0 ? '+' : '') + v.toFixed(2);
+// Formats a raw meta points score for display.
+const fmtMeta = (v) =>
+  v == null ? '\u2013' : (v >= 0 ? '+' : '') + v.toFixed(2);
 // metaClass: color band for a points score. Uses precomputed thresholds[group].
 function metaClass(v, group) {
   if (v == null) return '';
@@ -878,9 +863,20 @@ const META_GROUP_LABEL = {
 // at runtime via the settings menu without touching source code.
 // Falls back to BUILTIN_PRESET if the fetch fails.
 let META_PRESET = null; // set by applyMetaPreset() before first render
+let metaPositionScoresCache = new WeakMap();
+
+// Position proficiency is immutable for the lifetime of a loaded player record. Cache whether
+// newer dumps supplied it so filters and analysis do not allocate Object.keys arrays repeatedly.
+function hasPositionProficiency(p) {
+  if (p._hasPosProf === undefined) {
+    const proficiency = p.posProficiency;
+    p._hasPosProf = !!(proficiency && Object.keys(proficiency).length);
+  }
+  return p._hasPosProf;
+}
 
 // Install a parsed preset object as the active META_PRESET.
-// Clears per-player _meta/_metaPa/_metaGroup caches so next render recomputes scores.
+// Clears per-player meta caches so the next render recomputes scores with this preset.
 //
 // Only the direct (points-contribution) engine is supported:
 // score = Σ (attr − baseline) × coeff[attr] + (prof − profBaseline) × coeff_prof
@@ -1009,6 +1005,26 @@ function applyMetaPreset(data) {
       profAtNatural;
   }
 
+  // Several position groups can share the exact same attribute weights and synergies.
+  // Calculate that raw score once per player and reuse it across equivalent groups.
+  const rawGroupKeys = {};
+  const rawGroupProfiles = new Map();
+  for (const [g, gCoeffs] of Object.entries(coeffs)) {
+    const groupSynergies = (Array.isArray(synergies[g]) ? synergies[g] : []).map((synergy) => ({
+      attributes: synergy.attributes || [],
+      from: synergy.from ?? 12,
+      to: synergy.to ?? 16,
+      points: Math.max(0, synergy.points || 0),
+    }));
+    const profile = JSON.stringify({ coeffs: gCoeffs, synergies: groupSynergies });
+    let key = rawGroupProfiles.get(profile);
+    if (key === undefined) {
+      key = rawGroupProfiles.size;
+      rawGroupProfiles.set(profile, key);
+    }
+    rawGroupKeys[g] = key;
+  }
+
   META_PRESET = {
     name: data.name || 'Custom',
     weights: W,
@@ -1019,6 +1035,7 @@ function applyMetaPreset(data) {
     synergies,
     thresholds,
     maxScores,
+    rawGroupKeys,
     maxScore: Math.max(0, ...Object.values(maxScores)),
     // player_fields: attr key → field name on the player object.
     playerFields: data.player_fields || {},
@@ -1027,6 +1044,7 @@ function applyMetaPreset(data) {
 
   vsPositionMetaCache = new WeakMap();
   vsPotentialMetaCache = new WeakMap();
+  metaPositionScoresCache = new WeakMap();
 
   if (state.players) {
     for (const p of state.players) {
@@ -1107,8 +1125,15 @@ function pointsContribution(p, attrs, group) {
 // Returns {group → rawScore} for all meta groups using the given attrs (no proficiency applied).
 function rawMetaByGroup(p, attrs) {
   const out = {};
+  const profileScores = new Map();
   for (const g of Object.keys(META_PRESET.coeffs)) {
-    const s = pointsContribution(p, attrs, g);
+    const key = META_PRESET.rawGroupKeys?.[g] ?? g;
+    let s;
+    if (profileScores.has(key)) s = profileScores.get(key);
+    else {
+      s = pointsContribution(p, attrs, g);
+      profileScores.set(key, s);
+    }
     if (s != null) out[g] = s;
   }
   return out;
@@ -1121,14 +1146,20 @@ function rawMetaByGroup(p, attrs) {
 // Falls back to posArr with prof=null (no penalty) when posProficiency is absent (old dump).
 function metaScoresByPosition(p, attrs) {
   if (!attrs) return [];
+  // Full position rows are only needed for the open profile. Keeping these arrays for
+  // every player scored by list filters/sorting can create substantial memory pressure.
+  const cacheForProfile = state.selected === p;
+  let playerCache = cacheForProfile ? metaPositionScoresCache.get(p) : null;
+  if (playerCache?.has(attrs)) return playerCache.get(attrs);
+
   const raw = rawMetaByGroup(p, attrs);
   const profDict = p.posProficiency;
-  const hasProfData = profDict && Object.keys(profDict).length > 0;
+  const hasProfData = hasPositionProficiency(p);
   const posEntries = hasProfData
     ? Object.entries(profDict)
     : (p.posArr || []).map((pos) => [pos, null]);
   const seen = new Set();
-  return posEntries
+  const scores = posEntries
     .map(([pos, prof]) => {
       if (seen.has(pos)) return null;
       seen.add(pos);
@@ -1173,6 +1204,12 @@ function metaScoresByPosition(p, attrs) {
     })
     .filter(Boolean)
     .sort((a, b) => b.effectiveMeta - a.effectiveMeta);
+  if (cacheForProfile && !playerCache) {
+    playerCache = new WeakMap();
+    metaPositionScoresCache.set(p, playerCache);
+  }
+  if (cacheForProfile) playerCache.set(attrs, scores);
+  return scores;
 }
 
 // Single number for table sorting and display.

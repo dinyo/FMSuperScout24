@@ -1,4 +1,76 @@
 // ---------- filters ----------
+const FILTER_RESULT_CACHE = new Map();
+
+function filterResultStamp() {
+  const controls = readFilterControls();
+  return {
+    rows: state.mode === 'staff' ? state.staff : state.players,
+    players: state.players,
+    staff: state.staff,
+    history: state.hist,
+    historyMap: state.hist?.map,
+    preset: META_PRESET,
+    meta: state.meta,
+    signature: JSON.stringify({
+      mode: state.mode,
+      controls,
+      positions: [...activePos].sort(),
+      advRules: state.mode === 'staff' ? state.advStaffF : state.advF,
+      shortlistVersion: analysisShortlistVersion,
+      myTeam: state.myTeam,
+      myPlayerTeamFilter: state.myPlayerTeamFilter,
+      profThreshold: state.profThreshold,
+      role: state.role,
+      metaViewPos: state.metaViewPos,
+      sortKey: state.sortKey,
+      sortDir: state.sortDir,
+      histPeriod: state.histPeriod,
+      refYear: state.refYear,
+      refDoy: state.refDoy,
+      nowTs: state._nowTs,
+      currency: state.cur,
+      wagePer: state.wagePer,
+      hideCapa: state.hideCapa,
+      hideMeta: state.hideMeta,
+      myClub: state.meta.myClub,
+      myClubId: state.meta.myClubId,
+      myClubRep: state.meta.myClubRep,
+      playerCount: state.players.length,
+      staffCount: state.staff.length,
+      colCfg: state.colCfg,
+      wageCeil: state._wageCeil,
+      clubWages: state._clubWages,
+    }),
+  };
+}
+
+function sameFilterResultStamp(a, b) {
+  return (
+    a.rows === b.rows &&
+    a.players === b.players &&
+    a.staff === b.staff &&
+    a.history === b.history &&
+    a.historyMap === b.historyMap &&
+    a.preset === b.preset &&
+    a.meta === b.meta &&
+    a.signature === b.signature
+  );
+}
+
+function restoreFilterResultCache(mode) {
+  const cached = FILTER_RESULT_CACHE.get(mode);
+  if (!cached || !sameFilterResultStamp(cached.stamp, filterResultStamp())) return false;
+  state.filtered = cached.rows;
+  return true;
+}
+
+function saveFilterResultCache() {
+  FILTER_RESULT_CACHE.set(state.mode, {
+    stamp: filterResultStamp(),
+    rows: state.filtered,
+  });
+}
+
 const parseMoney = (s) => {
   if (!s) return null;
   s = s.trim().toUpperCase().replace(',', '.');
@@ -71,11 +143,14 @@ function applyFilters() {
     contractF = $('f-contract').value;
   const onlySl = state.mode !== 'staff' && ($('f-shortlist').checked || state.mode === 'shortlist');
   const advRules = activeAdvRules();
+  const selectedPositions = activePos.size ? [...activePos] : null;
+  const myPlayerTeams = state.mode === 'myplayer' ? myPlayerSelectedTeamGroups() : null;
   const staffRole = $('f-staffrole').value;
   const onlyRecruitableStaff = state.mode === 'staff' && $('f-staff-recruitable').checked;
   const gsel = $('f-gender').value; // '' = both, 'm' = men, 'v' = women
   const divVal = foldSearchText($('f-div').value.trim()); // substring search, case- and accent-insensitive
   const myClub = foldSearchText(state.meta.myClub || '');
+  const myClubId = Number(state.meta.myClubId) || 0;
   if (state.mode === 'shortlist') rows = state.players;
 
   state.filtered = rows.filter((p) => {
@@ -106,11 +181,10 @@ function applyFilters() {
     if (wage != null && (p.wage ?? Infinity) > wage) return false;
     if (
       nat &&
-      !(
-        (p.nat || []).some(
-          (n) => foldSearchText(n).includes(nat) || foldSearchText(natLabel(n)).includes(nat),
-        ) || foldSearchText(natsLabel(p)).includes(nat)
-      )
+      !(p._natQ ??= [
+        ...(p.nat || []).flatMap((nation) => [nation, natLabel(nation)]),
+        natsLabel(p),
+      ].map(foldSearchText).join('\u0000')).includes(nat)
     )
       return false;
     if (onlyWk && !isWonderkid(p)) return false;
@@ -131,7 +205,6 @@ function applyFilters() {
     // Include own players, players loaned out by My Club, and players loaned into My Club.
     // See loanStatus() for their colors.
     if (onlyMyClub) {
-      const myClubId = Number(state.meta.myClubId) || 0;
       const playerClubId = Number(p.clubId) || 0,
         ownerClubId = Number(p.ownerClubId) || 0;
       if (myClubId && (playerClubId || ownerClubId)) {
@@ -150,12 +223,11 @@ function applyFilters() {
       state.mode !== 'myplayer'
     ) {
       const tt = p.teamType;
-      const myClubId = Number(state.meta.myClubId) || 0;
       const playerClubId = Number(p.clubId) || 0;
       if (myClubId && playerClubId && playerClubId !== myClubId) return false;
       if (teamGroup(tt) !== state.myTeam) return false;
     }
-    if (state.mode === 'myplayer' && !myPlayerSelectedTeamGroups().has(teamGroup(p.teamType)))
+    if (myPlayerTeams && !myPlayerTeams.has(teamGroup(p.teamType)))
       return false;
     if (contractF === 'free' && !isFree(p)) return false;
     if (contractF === 'exp6' || contractF === 'exp12') {
@@ -176,11 +248,11 @@ function applyFilters() {
       if (r.min && av < r.min) return false;
       if (r.max && av > r.max) return false;
     }
-    if (activePos.size) {
+    if (selectedPositions) {
       const prof = p.posProficiency;
-      const hasProfData = prof && Object.keys(prof).length > 0;
+      const hasProfData = hasPositionProficiency(p);
       const pass = hasProfData
-        ? [...activePos].some((pos) => (prof[pos] ?? 0) >= state.profThreshold)
+        ? selectedPositions.some((pos) => (prof[pos] ?? 0) >= state.profThreshold)
         : (p.posArr || []).some((x) => activePos.has(x)); // old dump fallback
       if (!pass) return false;
     }
@@ -188,10 +260,12 @@ function applyFilters() {
     if (onlyRecruitableStaff && !isRecruitableStaff(p)) return false;
     if (gsel === 'm' && p.gender === 1) return false;
     if (gsel === 'v' && p.gender !== 1) return false;
-    if (divVal && !foldSearchText(playerDivisionLabel(p)).includes(divVal)) return false;
+    if (divVal && !(p._divisionQ ??= foldSearchText(playerDivisionLabel(p))).includes(divVal))
+      return false;
     return true;
   });
   sortRows();
+  saveFilterResultCache();
   renderChips(buildChips());
   updateSecDots();
   persistFilterTab();

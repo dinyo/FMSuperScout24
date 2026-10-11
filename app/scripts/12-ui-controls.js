@@ -312,19 +312,6 @@ $('set-hidemeta').addEventListener('change', () => {
   localStorage.setItem('fmss_hidemeta', state.hideMeta ? '1' : '0');
   applyHideCapa(); // Re-render columns, filters, profile, and analysis after the visibility setting changes.
 });
-$('set-meta-percent').checked = state.metaPercent;
-$('set-meta-percent').addEventListener('change', () => {
-  state.metaPercent = $('set-meta-percent').checked;
-  localStorage.setItem('fmss_meta_percent', state.metaPercent ? '1' : '0');
-  if (state.mode === 'analysis') renderAnalysis();
-  else if (state.mode === 'bestxi') renderBestXI();
-  else if (state.mode === 'club-list') renderClubList();
-  else {
-    renderTable();
-    applyFilters();
-  }
-  if (state.selected) showDetail(state.selected);
-});
 $('set-hidecapa').checked = !state.hideCapa; // Checked means CA/PA values are visible by default.
 $('set-hidecapa').addEventListener('change', () => {
   state.hideCapa = !$('set-hidecapa').checked;
@@ -475,6 +462,7 @@ $('btn-shortlist-sync').onclick = async () => {
       // Hybrid rows can be absent from an older full dump. The native shortlist
       // probe includes their compact player record so the just-loaded row is
       // immediately visible instead of waiting for another full scan.
+      let addedPlayers = false;
       if (Array.isArray(data.players)) {
         const known = new Set(state.allPlayers.map((p) => Number(p.id)));
         for (const player of data.players) {
@@ -483,12 +471,27 @@ $('btn-shortlist-sync').onclick = async () => {
           state.allPlayers.push(player);
           state.players.push(player);
           known.add(id);
+          addedPlayers = true;
+          const clubId = Number(player.clubId) || 0;
+          if (clubId > 0 && player.teamType === 0) {
+            if (!state._clubSeniorSquadCounts) state._clubSeniorSquadCounts = new Map();
+            state._clubSeniorSquadCounts.set(
+              clubId,
+              (state._clubSeniorSquadCounts.get(clubId) || 0) + 1,
+            );
+          }
         }
+      }
+      if (addedPlayers) {
+        state._wageCeil = undefined;
+        state._clubWages = null;
+        CLUB_FINANCE_VALID_CACHE = new WeakMap();
       }
       // Keep valid IDs even when FM exposes a ghost/hybrid row that the last
       // full dump did not include yet. The next dump can then rehydrate it,
       // instead of silently shrinking the game shortlist during import.
       state.shortlist = new Set(gameIds);
+      invalidateAnalysisData();
       localStorage.setItem('fmss_shortlist', JSON.stringify([...state.shortlist]));
       $('sl-count').textContent = state.shortlist.size;
       status.textContent = tf('syncfound', { n: state.shortlist.size });
@@ -595,6 +598,7 @@ function setMode(mode) {
   state.bulkSelected.clear();
   state.bulkAnchor = null;
   updateBulkBar();
+  if (state.selected) metaPositionScoresCache.delete(state.selected);
   state.selected = null;
   $('detail').classList.add('hidden');
   $('detail-backdrop').classList.add('hidden');
@@ -637,8 +641,12 @@ function setMode(mode) {
     state.sortKey = 'ca';
     state.sortDir = -1;
   }
+  const reusedFilterResult = restoreFilterResultCache(mode);
   renderTable();
-  applyFilters();
+  if (reusedFilterResult) {
+    renderChips(buildChips());
+    updateSecDots();
+  } else applyFilters();
   if (histRefresh)
     histRefresh.then(() => {
       if (state.mode !== mode) return;
@@ -651,12 +659,15 @@ function setMode(mode) {
 // Bind the newer tabs.
 if ($('tab-bestxi')) $('tab-bestxi').onclick = () => setMode('bestxi');
 if ($('tab-club-list')) $('tab-club-list').onclick = () => setMode('club-list');
+let clubListFilterTimer = null;
 $('fg-clubfilters').addEventListener('input', (e) => {
   if (
     e.target.matches('input') &&
     !['club-filter-league', 'club-filter-nation'].includes(e.target.id)
-  )
-    applyClubListFilters();
+  ) {
+    clearTimeout(clubListFilterTimer);
+    clubListFilterTimer = setTimeout(applyClubListFilters, 100);
+  }
 });
 $('club-list-head').addEventListener('click', (e) => {
   const th = e.target.closest('[data-club-sort]');

@@ -36,6 +36,8 @@ const FILTER_CONTROL_DEFAULTS = Object.fromEntries(
     return [id, el.type === 'checkbox' ? { checked: el.checked } : { value: el.value }];
   }),
 );
+let filterTabPersistTimer = null,
+  filterTabPersistencePending = false;
 function readFilterControls() {
   const controls = {};
   for (const id of FILTER_CONTROL_IDS) {
@@ -62,10 +64,20 @@ function persistFilterTab(mode = state.mode) {
     myTeam: state.myTeam,
     adv: (rules || []).map((rule) => ({ ...rule })),
   };
+  filterTabPersistencePending = true;
+  clearTimeout(filterTabPersistTimer);
+  filterTabPersistTimer = setTimeout(flushFilterTabPersistence, 250);
+}
+function flushFilterTabPersistence() {
+  clearTimeout(filterTabPersistTimer);
+  filterTabPersistTimer = null;
+  if (!filterTabPersistencePending) return;
+  filterTabPersistencePending = false;
   try {
     localStorage.setItem(FILTER_TAB_STORAGE_KEY, JSON.stringify(filterTabSnapshots));
   } catch {}
 }
+window.addEventListener('pagehide', flushFilterTabPersistence);
 function restoreFilterTab(mode) {
   if (!FILTER_TAB_MODES.has(mode)) return;
   const snapshot = filterTabSnapshots[mode];
@@ -369,15 +381,16 @@ async function loadDump(force = false) {
     state.players = state.allPlayers.filter(
       (p) => p.club || p.worldRep !== 0xffff || savedShortlistIds.has(Number(p.id)),
     );
-    const seniorSquadIds = new Map();
+    const seniorSquadCounts = new Map();
     for (const p of state.allPlayers)
       if (p.clubId && p.teamType === 0) {
         const id = Number(p.clubId);
-        if (!seniorSquadIds.has(id)) seniorSquadIds.set(id, new Set());
-        seniorSquadIds.get(id).add(Number(p.id));
+        seniorSquadCounts.set(id, (seniorSquadCounts.get(id) || 0) + 1);
       }
-    state._clubSeniorSquadCounts = new Map([...seniorSquadIds].map(([id, ids]) => [id, ids.size]));
+    // The reader emits each player UID once, so counts need no per-club ID sets.
+    state._clubSeniorSquadCounts = seniorSquadCounts;
     state.staff = data.staff || [];
+    FILTER_RESULT_CACHE.clear();
     if (state.players.length) {
       const knownPlayerIds = new Set(state.players.map((p) => Number(p.id)));
       const playerShortlist = new Set(
@@ -827,13 +840,14 @@ function scoreDiv(entry, q) {
   if (idx >= 0) return 3000 + str - Math.min(450, idx * 15);
   // Class 2: a word starts with the query, allowing a small typo.
   let hit = false;
-  for (const w of name.split(' ')) {
+  const tolerance = q.length >= 6 ? 2 : q.length >= 4 ? 1 : 0;
+  const words = (entry._words ??= name.split(' '));
+  for (const w of words) {
     if (w.startsWith(q)) {
       hit = true;
       break;
     }
-    const tol = q.length >= 6 ? 2 : q.length >= 4 ? 1 : 0;
-    if (tol && editDist(q, w.slice(0, q.length + tol), tol) <= tol) {
+    if (tolerance && editDist(q, w.slice(0, q.length + tolerance), tolerance) <= tolerance) {
       hit = true;
       break;
     }
@@ -850,11 +864,22 @@ function renderCompetitionSuggest(inputId, boxId, entries, selection) {
   if (!input || !box) return;
   const q = normStr(input.value);
   const idx = entries || [];
-  const ranked = idx
-    .map((e) => ({ e, s: scoreDiv(e, q) }))
-    .filter((x) => x.s >= 0)
-    .sort((a, b) => b.s - a.s)
-    .slice(0, 8);
+  const ranked = [];
+  for (const e of idx) {
+    const score = scoreDiv(e, q);
+    if (!(score >= 0)) continue;
+    let low = 0,
+      high = ranked.length;
+    while (low < high) {
+      const middle = (low + high) >>> 1;
+      if (score > ranked[middle].s) high = middle;
+      else low = middle + 1;
+    }
+    if (low < 8) {
+      ranked.splice(low, 0, { e, s: score });
+      if (ranked.length > 8) ranked.pop();
+    }
+  }
   if (!ranked.length) {
     box.classList.add('hidden');
     box.innerHTML = '';

@@ -330,9 +330,14 @@ function vsPlayersByPosition(players, positions, threshold, selectedTeams = null
   for (const p of players) {
     if (!allTeamsSelected && !selectedTeams.has(teamGroup(p.teamType))) continue;
     const proficiency = p.posProficiency;
-    if (proficiency && Object.keys(proficiency).length) {
-      for (const [pos, value] of Object.entries(proficiency)) {
-        if (allowed.has(pos) && Number(value) >= threshold) result.get(pos).push(p);
+    if (hasPositionProficiency(p)) {
+      for (const pos in proficiency) {
+        if (
+          Object.hasOwn(proficiency, pos) &&
+          allowed.has(pos) &&
+          Number(proficiency[pos]) >= threshold
+        )
+          result.get(pos).push(p);
       }
     } else {
       const seen = new Set();
@@ -395,8 +400,7 @@ function vsPotentialScoreForPosition(p, pos) {
   return vsPotentialScoresByPosition(p).get(pos) ?? null;
 }
 function vsMeetsProficiency(p, pos) {
-  if (!p.posProficiency || !Object.keys(p.posProficiency).length)
-    return (p.posArr || []).includes(pos);
+  if (!hasPositionProficiency(p)) return (p.posArr || []).includes(pos);
   return (p.posProficiency[pos] || 0) >= state.vsProfThreshold;
 }
 function vsColConfig() {
@@ -885,18 +889,21 @@ function renderAnalysisCardPlayers(players, pos, metrics) {
   ];
   const valueFor = (player, column) =>
     column.key === 'name' ? player.name || '' : column.metric.get(player);
-  const rows = players.slice().sort((a, b) => {
-    const column = columns.find((item) => item.key === sortKey);
-    const av = valueFor(a, column),
-      bv = valueFor(b, column);
-    if (av == null || av === '') return bv == null || bv === '' ? 0 : 1;
-    if (bv == null || bv === '') return -1;
-    const result =
-      sortKey === 'name'
-        ? String(av).localeCompare(String(bv), FORMAT_LOCALE)
-        : (Number(av) || 0) - (Number(bv) || 0);
-    return result * sortDir;
-  });
+  const sortColumn = columns.find((item) => item.key === sortKey) || columns[0];
+  const rows = players
+    .map((player, index) => ({ player, index, value: valueFor(player, sortColumn) }))
+    .sort((a, b) => {
+      const av = a.value,
+        bv = b.value;
+      if (av == null || av === '') return bv == null || bv === '' ? 0 : 1;
+      if (bv == null || bv === '') return -1;
+      const result =
+        sortKey === 'name'
+          ? String(av).localeCompare(String(bv), FORMAT_LOCALE)
+          : (Number(av) || 0) - (Number(bv) || 0);
+      return result * sortDir || a.index - b.index;
+    })
+    .map((entry) => entry.player);
   const heads = columns
     .map((column) => {
       const sorted = column.key === sortKey;

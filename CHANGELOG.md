@@ -5,6 +5,21 @@ new release is built, so the Unreleased section below is what the next release s
 
 ## [Unreleased]
 
+## [1.5.0-24.2] - 2026-10-11
+
+### Changed
+- Meta and PA Meta now consistently display raw position scores; the optional normalized
+  percentage display has been removed.
+- Reduced repeated work in player filtering and sorting, Best XI formation evaluation,
+  club-list search and sorting, and history-delta lookups, especially on large saves.
+- Filter-tab settings are written after input settles and flushed when the app closes.
+
+### Fixed
+- Refresh wage and club-finance caches when shortlist sync adds player rows, and keep
+  senior-squad counts aligned with those rows.
+- Preserve competition-suggestion ranking behavior while avoiding a full sort to select
+  the eight displayed suggestions.
+
 ## [1.5.0-24.1] - 2026-10-11
 
 ### Added
