@@ -14,5 +14,5 @@ test('FM24 version-8 FMF export imports back with unique player IDs', () => {
 });
 
 test('FMF importer rejects a non-shortlist file', () => {
-  assert.throws(() => importShortlistFmf(Buffer.alloc(80, 0x41)), /bukan archive shortlist FMF/);
+  assert.throws(() => importShortlistFmf(Buffer.alloc(80, 0x41)), /Not an FMF shortlist archive/);
 });

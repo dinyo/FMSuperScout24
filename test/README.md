@@ -1,7 +1,7 @@
 # Tests
 
-Zero-dependency model tests (`node:test`) for the calculation functions in `app/app.js`:
-value estimation, asking price, interest, potential projection and role score.
+Zero-dependency tests (`node:test`) for frontend models, English-only labels, FMF import/export,
+and team classification.
 
 ```bash
 npm test        # or: node --test test/*.test.js
@@ -9,11 +9,10 @@ npm test        # or: node --test test/*.test.js
 
 ## How it works
 
-`app/app.js` is one classic browser script full of DOM handling, so it is not a module you
-can simply `require`. `harness.js` runs the real source code in a function scope with
-fake (no-op) globals (`document`, `localStorage`, `fetch`, …) and then returns the calculation
-functions. That way we test the real code, not a copy: a model change that breaks the tests
-gets noticed right away.
+The frontend uses ordered classic scripts, so it is not a module that can be simply `require`d.
+`harness.js` reads the script order from `app/index.html`, runs the actual source in a function
+scope with no-op browser APIs, and returns selected functions for the tests. That way a model
+change that breaks behavior is checked against the real app code.
 
 ## Recalibrating the value model
 

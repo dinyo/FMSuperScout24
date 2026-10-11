@@ -1,352 +1,878 @@
-ï»¿<!DOCTYPE html>
-<html lang="nl">
-<head>
-<meta charset="utf-8">
-<title>FMSuperScout 24</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<link rel="stylesheet" href="style.css">
-<link rel="icon" href="logo.svg" type="image/svg+xml">
-</head>
-<body>
-<header id="topbar">
-  <button id="btn-sidebar" data-i18n-title="filtersTitle" title="Filters">
-    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
-  </button>
-  <img id="brand-logo" src="logo.svg" alt="" width="26" height="26">
-  <h1>FM<span>Super</span>Scout 24</h1>
-  <nav>
-    <button id="tab-players" class="tab active" data-i18n="players">Spelers</button>
-    <button id="tab-shortlist" class="tab">
-      <svg class="star-ic" viewBox="0 0 24 24" width="13" height="13" aria-hidden="true"><path d="M12 2.5l2.94 5.96 6.58.96-4.76 4.64 1.12 6.55L12 17.52l-5.88 3.09 1.12-6.55-4.76-4.64 6.58-.96z"/></svg>
-      <span data-i18n="shortlist">Shortlist</span> <span id="sl-count">0</span></button>
-    <button id="tab-myplayer" class="tab" data-i18n="tabMyPlayers">My Player</button>
-    <button id="tab-analysis" class="tab" data-i18n="analysis">Analyse</button>
-    <button id="tab-bestxi" class="tab" data-i18n="tabBestxi">Best XI</button>
-    <button id="tab-staff" class="tab" data-i18n="staff">Staf</button>
-    <button id="tab-club-list" class="tab" data-i18n="tabClubList">Club</button>
-  </nav>
-  <div id="club-badge" data-i18n-title="clickClubFilter" title="Klik = filter op jouw club"></div>
-  <span id="update-pill" class="hidden"></span>
-  <div id="dump-info"></div>
-  <div id="game-date"></div>
-  <button id="btn-fetch" data-i18n-title="fetchHint" title="Vraag FM om een nieuwe dump">
-    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-    <span data-i18n="fetch">Nieuwe data</span>
-  </button>
-  <button id="btn-reload" data-i18n-title="reloadHint" title="Laatste dump opnieuw laden">
-    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
-  </button>
-  <button id="btn-coffee" data-i18n-title="donateBtn" title="Steun FMSuperScout">â˜•</button>
-  <button id="btn-settings" data-i18n-title="settingsTitle" data-i18n-aria="settings" title="Instellingen" aria-label="Instellingen">
-    <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-  </button>
-</header>
-<div id="settings-menu" class="hidden">
-  <div class="set-head" data-i18n="settings">Instellingen</div>
-  <div class="set-row"><span data-i18n="langLabel">Taal</span>
-    <select id="sel-lang"><option value="nl">Nederlands</option><option value="en">English</option><option value="fr">FranÃ§ais</option><option value="de">Deutsch</option></select></div>
-  <div class="set-row"><span data-i18n="curLabel">Valuta</span>
-    <select id="sel-cur"><option value="Â£">Â£ GBP</option><option value="â‚¬">â‚¬ EUR</option><option value="$">$ USD</option></select></div>
-  <div class="set-row"><span data-i18n="wagePer">Salaris per</span>
-    <select id="sel-wageper">
-      <option value="w" data-i18n="perWeek">week</option>
-      <option value="m" data-i18n="perMonth">maand</option>
-      <option value="y" data-i18n="perYear">jaar</option>
-    </select></div>
-  <div class="set-row"><span data-i18n="profileMode">Spelersprofiel</span>
-    <select id="set-profile">
-      <option value="side" data-i18n="profSide">Rechts</option>
-      <option value="popup" data-i18n="profPopup">Popup</option>
-    </select></div>
-  <div class="set-row"><span><span data-i18n="scanDb">Database</span> <span class="col-help" data-help="scanDbHint">?</span></span>
-    <select id="sel-db">
-      <option value="men" data-i18n="dbMen">Mannen</option>
-      <option value="women" data-i18n="dbWomen">Vrouwen</option>
-      <option value="both" data-i18n="dbBoth">Beide</option>
-    </select></div>
-  <label class="set-row set-toggle"><span data-i18n="showHidden">Verborgen stats tonen</span>
-    <input type="checkbox" id="set-hidecapa"></label>
-  <label class="set-row set-toggle"><span data-i18n="showMeta">Meta-score tonen</span>
-    <input type="checkbox" id="set-hidemeta"></label>
-  <div class="set-div"></div>
-  <div class="set-row set-meta-preset">
-    <span data-i18n="metaWeightsLabel" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="">Meta-gewichten</span>
-    <span id="meta-preset-name" style="font-size:0.78em;color:var(--c-dim,#64748b);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:right" title="">â€¦</span>
-  </div>
-  <div class="set-row" style="gap:6px">
-    <button id="meta-preset-load-btn" class="set-link" data-i18n="metaWeightsLoad" style="flex:1">Bestand ladenâ€¦</button>
-    <button id="meta-preset-reset-btn" class="set-link" data-i18n="metaWeightsReset" style="flex:1">Standaard herstellen</button>
-    <button id="meta-preset-edit-btn" class="set-link" data-i18n="metaWeightsEdit" style="flex:1">Gewichten bewerken</button>
-  </div>
-  <input type="file" id="meta-preset-file" accept=".json" style="display:none">
-  <button id="btn-clear-data" class="set-danger" data-i18n="clearAllData">Scoutingdata wissen</button>
-  <div class="set-div"></div>
-  <div class="set-about">
-    <span id="set-version"></span>
-    <button id="btn-updcheck" class="set-link" data-i18n="updCheckBtn">Zoek updates</button>
-  </div>
-  <div class="set-note" id="upd-note"></div>
-  <button id="btn-report" class="set-report" data-i18n="reportBug">Probleem meldenâ€¦</button>
-</div>
-
-<div id="banner" class="hidden"></div>
-<div id="ver-warn" class="hidden"></div>
-<div id="main">
-  <aside id="filters">
-    <div class="fgroup">
-      <div class="search-wrap">
-        <svg class="search-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
-        <input type="text" id="f-name" data-i18n-ph="searchph" placeholder="Zoek naam of club">
-      </div>
-    </div>
-
-    <div class="fsection" id="fg-clubfilters" data-sec="clubfilters" style="display:none">
-      <div class="fsec-head" data-i18n="clubFilterToggle">Club filters</div>
-      <div class="club-filter-search">
-        <label><span data-i18n="clubFilterName">Club name</span><input type="text" id="club-filter-name" data-i18n-ph="clubFilterSearchName" placeholder="Search club"></label>
-        <label><span data-i18n="clubFilterNation">Nation</span><div id="club-nation-search"><input type="text" id="club-filter-nation" autocomplete="off" data-i18n-ph="clubFilterSearchNation" placeholder="Search nation"><div id="club-nation-suggest" class="hidden"></div></div></label>
-        <label><span data-i18n="clubFilterLeague">League</span><div id="club-league-search"><input type="text" id="club-filter-league" autocomplete="off" data-i18n-ph="clubFilterSearchLeague" placeholder="Search league"><div id="club-league-suggest" class="hidden"></div></div></label>
-      </div>
-      <div class="club-list-range-grid">
-        <label class="club-filter-range" data-filter-key="reputation"><span data-i18n="clubColReputation">Reputation</span><span class="club-filter-range-inputs"><input type="number" min="0" step="1" data-club-min="reputation" data-i18n-ph="clubFilterMin" placeholder="Min"><input type="number" min="0" step="1" data-club-max="reputation" data-i18n-ph="clubFilterMax" placeholder="Max"></span></label>
-        <label class="club-filter-range" data-filter-key="transferBudget"><span data-i18n="clubColTransferBudget">Transfer budget</span><span class="club-filter-range-inputs"><input type="number" min="0" step="1" data-club-min="transferBudget" data-i18n-ph="clubFilterMin" placeholder="Min"><input type="number" min="0" step="1" data-club-max="transferBudget" data-i18n-ph="clubFilterMax" placeholder="Max"></span></label>
-        <label class="club-filter-range" data-filter-key="remainingTransfer"><span data-i18n="clubColTransferRemaining">Transfer remaining</span><span class="club-filter-range-inputs"><input type="number" min="0" step="1" data-club-min="remainingTransfer" data-i18n-ph="clubFilterMin" placeholder="Min"><input type="number" min="0" step="1" data-club-max="remainingTransfer" data-i18n-ph="clubFilterMax" placeholder="Max"></span></label>
-        <label class="club-filter-range" data-filter-key="wageBudget"><span data-i18n="clubColWageBudget">Wage budget</span><span class="club-filter-range-inputs"><input type="number" min="0" step="1" data-club-min="wageBudget" data-i18n-ph="clubFilterMin" placeholder="Min"><input type="number" min="0" step="1" data-club-max="wageBudget" data-i18n-ph="clubFilterMax" placeholder="Max"></span></label>
-        <label class="club-filter-range" data-filter-key="wageUsed"><span data-i18n="clubColWageUsed">Wage used</span><span class="club-filter-range-inputs"><input type="number" min="0" step="1" data-club-min="wageUsed" data-i18n-ph="clubFilterMin" placeholder="Min"><input type="number" min="0" step="1" data-club-max="wageUsed" data-i18n-ph="clubFilterMax" placeholder="Max"></span></label>
-        <label class="club-filter-range" data-filter-key="balance"><span data-i18n="clubColBalance">Balance</span><span class="club-filter-range-inputs"><input type="number" step="1" data-club-min="balance" data-i18n-ph="clubFilterMin" placeholder="Min"><input type="number" step="1" data-club-max="balance" data-i18n-ph="clubFilterMax" placeholder="Max"></span></label>
-        <label class="club-filter-range" data-filter-key="trainingFacilities"><span data-i18n="clubColTrainingFacilities">Training facilities</span><span class="club-filter-range-inputs"><input type="number" min="0" max="20" step="1" data-club-min="trainingFacilities" data-i18n-ph="clubFilterMin" placeholder="Min"><input type="number" min="0" max="20" step="1" data-club-max="trainingFacilities" data-i18n-ph="clubFilterMax" placeholder="Max"></span></label>
-        <label class="club-filter-range" data-filter-key="youthTrainingFacilities"><span data-i18n="clubColYouthTrainingFacilities">Youth training facilities</span><span class="club-filter-range-inputs"><input type="number" min="0" max="20" step="1" data-club-min="youthTrainingFacilities" data-i18n-ph="clubFilterMin" placeholder="Min"><input type="number" min="0" max="20" step="1" data-club-max="youthTrainingFacilities" data-i18n-ph="clubFilterMax" placeholder="Max"></span></label>
-        <label class="club-filter-range" data-filter-key="juniorCoaching"><span data-i18n="clubColJuniorCoaching">Junior coaching</span><span class="club-filter-range-inputs"><input type="number" min="0" max="20" step="1" data-club-min="juniorCoaching" data-i18n-ph="clubFilterMin" placeholder="Min"><input type="number" min="0" max="20" step="1" data-club-max="juniorCoaching" data-i18n-ph="clubFilterMax" placeholder="Max"></span></label>
-        <label class="club-filter-range" data-filter-key="youthRecruitment"><span data-i18n="clubColYouthRecruitment">Youth recruitment</span><span class="club-filter-range-inputs"><input type="number" min="0" max="20" step="1" data-club-min="youthRecruitment" data-i18n-ph="clubFilterMin" placeholder="Min"><input type="number" min="0" max="20" step="1" data-club-max="youthRecruitment" data-i18n-ph="clubFilterMax" placeholder="Max"></span></label>
-      </div>
-    </div>
-
-    <div class="fsection" id="fg-presets" data-sec="presets">
-      <div class="fsec-head" data-i18n="presetsTitle">Opgeslagen filters</div>
-      <div id="preset-dd">
-        <button id="preset-dd-btn" type="button" disabled>
-          <span id="preset-dd-label"></span>
-          <svg class="chev" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-        </button>
-        <div id="preset-dd-menu" class="hidden"></div>
-      </div>
-      <button id="btn-preset-save">
-        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-        <span data-i18n="presetSave">Huidige filters opslaan</span>
-      </button>
-    </div>
-
-    <div class="fsection" id="f-meta-group-row">
-      <div class="frow"><span data-i18n="metaViewLabel">Show meta for position...</span><select id="f-meta-group"></select></div>
-    </div>
-
-    <div class="fsection" id="fg-pitch" data-sec="pitch">
-      <div class="fsec-head" data-i18n="position">Positie</div>
-      <div id="pitch-wrap"></div>
-      <div style="display:flex;align-items:center;gap:6px;margin-top:5px;font-size:0.82em;opacity:0.75">
-        <label for="f-prof-threshold" data-i18n="profThresholdLabel">Min. proficiency</label>
-        <input type="number" id="f-prof-threshold" min="1" max="20" value="15" style="width:42px;padding:1px 3px">
-      </div>
-    </div>
-
-    <div class="fsection" id="fg-gender" style="display:none">
-      <div class="fsec-head" data-i18n="genderLabel">Geslacht</div>
-      <select id="f-gender">
-        <option value="" data-i18n="dbBoth">Beide</option>
-        <option value="m" data-i18n="dbMen">Mannen</option>
-        <option value="v" data-i18n="dbWomen">Vrouwen</option>
-      </select>
-    </div>
-
-    <div class="fsection" id="fg-staffrole" data-sec="staffrole" style="display:none">
-      <div class="fsec-head" data-i18n="staffrole">Staf-rol</div>
-      <select id="f-staffrole"><option value="">â€“</option></select>
-      <label class="chk" id="f-staff-recruitable-row"><input type="checkbox" id="f-staff-recruitable" checked> <span data-i18n="staffRecruitableOnly">Hide non-recruitable roles</span></label>
-    </div>
-
-    <div class="fsection" data-sec="role" id="fg-role">
-      <div class="fsec-head" data-i18n="roleFit">Tactische rol</div>
-      <select id="f-role"></select>
-    </div>
-
-    <div class="fsection" data-sec="quality">
-      <div class="fsec-head" data-i18n="quality">Kwaliteit &amp; leeftijd</div>
-      <div class="frow"><span data-i18n="age">Leeftijd</span><div class="range2"><input type="number" id="f-age-min" placeholder="â€“">â€“<input type="number" id="f-age-max" placeholder="â€“"></div></div>
-      <div class="frow capa-row"><span>CA</span><div class="range2"><input type="number" id="f-ca-min" placeholder="â€“">â€“<input type="number" id="f-ca-max" placeholder="â€“"></div></div>
-      <div class="frow capa-row"><span>PA</span><div class="range2"><input type="number" id="f-pa-min" placeholder="â€“">â€“<input type="number" id="f-pa-max" placeholder="â€“"></div></div>
-      <div class="frow meta-row" id="f-meta-row"><span>Meta <span class="col-help" data-help="metaHint">?</span></span><div class="range2"><input type="number" id="f-meta-min" placeholder="â€“">â€“<input type="number" id="f-meta-max" placeholder="â€“"></div></div>
-      <div class="frow meta-row capa-row" id="f-metapa-row"><span>PA-meta <span class="col-help" data-help="metaPaHint">?</span></span><div class="range2"><input type="number" id="f-metapa-min" placeholder="â€“">â€“<input type="number" id="f-metapa-max" placeholder="â€“"></div></div>
-      <label class="chk capa-row" id="f-wonderkid-row"><input type="checkbox" id="f-wonderkid"> <span data-i18n="wonderkidOnly">Alleen wonderkids</span> <span class="col-help" data-help="wonderkidHint">?</span></label>
-      <button id="btn-adv" type="button"></button>
-    </div>
-
-    <div class="fsection" data-sec="development" id="fg-development" style="display:none">
-      <div class="fsec-head" data-i18n="development">Ontwikkeling</div>
-      <div class="frow"><span data-i18n="histPeriod">Periode</span>
-        <select id="f-hist-period">
-          <option value="last" data-i18n="hp_last">Sinds vorige dump</option>
-          <option value="m6" data-i18n="hp_m6">Afgelopen 6 maanden</option>
-          <option value="y1" data-i18n="hp_y1">Afgelopen jaar</option>
-          <option value="season" data-i18n="hp_season">Dit seizoen</option>
-          <option value="all" data-i18n="hp_all">Sinds we meten</option>
-        </select></div>
-      <div class="frow"><span><span data-i18n="growthRange">Groei</span> <span class="col-help" data-help="growthHint">?</span></span>
-        <div class="range2"><input type="number" id="f-growth-min" placeholder="â€“">â€“<input type="number" id="f-growth-max" placeholder="â€“"></div></div>
-      <label class="chk"><input type="checkbox" id="f-new"> <span data-i18n="onlyNew">Alleen nieuwe spelers</span> <span class="col-help" data-help="onlyNewHint">?</span></label>
-    </div>
-
-    <div class="fsection" data-sec="physical" id="fg-physical">
-      <div class="fsec-head" data-i18n="physical">Fysiek</div>
-      <div class="frow"><span data-i18n="heightCm">Lengte (cm)</span><div class="range2"><input type="number" id="f-height-min" placeholder="â€“">â€“<input type="number" id="f-height-max" placeholder="â€“"></div></div>
-      <div class="frow"><span data-i18n="foot">Voet</span>
-        <select id="f-foot"><option value="" data-i18n="all">Alle</option></select></div>
-    </div>
-
-    <div class="fsection" data-sec="financial">
-      <div class="fsec-head" data-i18n="financial">Financieel</div>
-      <div class="frow" id="f-price-row"><span data-i18n="maxvalue">Max. waarde</span><input type="text" id="f-price" placeholder="10M"></div>
-      <div class="frow capa-row" id="f-fee-row"><span data-i18n="maxfee">Max. vraagprijs</span><input type="text" id="f-fee" placeholder="15M"></div>
-      <div class="frow"><span data-i18n="maxwage">Max. loon p/w</span><input type="text" id="f-wage" placeholder="50K"></div>
-    </div>
-
-    <div class="fsection" data-sec="origin">
-      <div class="fsec-head" data-i18n="originComp">Herkomst &amp; competitie</div>
-      <div class="frow"><span data-i18n="nat">Nationaliteit</span><input type="text" id="f-nat" data-i18n-ph="natExample" placeholder="Netherlands"></div>
-      <label class="chk"><input type="checkbox" id="f-eu"> <span data-i18n="euonly">Alleen EU/EEA</span></label>
-      <div class="fgroup" id="fg-div" style="display:none">
-        <label data-i18n="divLabel">Divisie</label>
-        <div id="div-search">
-          <input type="text" id="f-div" autocomplete="off" data-i18n-ph="divSearch" placeholder="Typ een competitieâ€¦">
-          <div id="div-suggest" class="hidden"></div>
-        </div>
-      </div>
-    </div>
-
-    <div class="fsection" data-sec="availability">
-      <div class="fsec-head" data-i18n="availability">Beschikbaarheid</div>
-      <div class="frow" id="f-interest-row"><span><span data-i18n="interestmin">Wil naar jou â‰¥</span> <span class="col-help" data-help="interestHint">?</span></span>
-        <select id="f-interest">
-          <option value="0" data-i18n="all">Alle</option>
-          <option value="25" data-i18n="int_small">Klein</option>
-          <option value="45" data-i18n="int_ok">Redelijk</option>
-          <option value="70" data-i18n="int_big">Groot</option>
-        </select></div>
-      <div class="frow" id="f-tstatus-row"><span data-i18n="tstatus">Transferstatus</span>
-        <select id="f-tstatus">
-          <option value="" data-i18n="all">Alle</option>
-          <option value="sale" data-i18n="tsSale">Te koop</option>
-          <option value="loan" data-i18n="tsLoan">Te huur</option>
-          <option value="any" data-i18n="tsAny">Te koop of te huur</option>
-        </select></div>
-      <div class="frow"><span data-i18n="contractF">Contract</span>
-        <select id="f-contract">
-          <option value="" data-i18n="all">Alle</option>
-          <option value="free" data-i18n="free">Clubloos</option>
-          <option value="exp6" data-i18n="exp6">&lt; 6 mnd</option>
-          <option value="exp12" data-i18n="exp12">&lt; 1 jaar</option>
-        </select></div>
-      <label class="chk" id="f-myclub-row"><input type="checkbox" id="f-myclub"> <span data-i18n="myclub">Mijn club</span></label>
-      <div id="myteam-chips" style="display:none"></div>
-      <label class="chk" id="f-shortlist-row"><input type="checkbox" id="f-shortlist"> <span data-i18n="onlyshortlist">Alleen shortlist</span></label>
-    </div>
-
-    <button id="btn-clear" data-i18n="clearfilters">Filters wissen</button>
-  </aside>
-
-  <section id="content">
-    <div id="sl-bar" class="hidden">
-      <button id="btn-shortlist-sync" data-i18n-title="syncHint" title="Open FM24 > Scouting > Shortlist en laad de lijst opnieuw">
-        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.5 15a9 9 0 1 1-2.1-9.4L23 10"/></svg>
-        <span data-i18n="syncfm">Haal lijst uit FM24</span>
-      </button>
-      <button id="btn-export">
-        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-        <span data-i18n="exportcsv">Shortlist exporteren (CSV)</span>
-      </button>
-      <button id="btn-export-fmf">
-        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0 5-5m-5 5-5-5"/><path d="M5 19h14"/></svg>
-        <span data-i18n="exportfmf">Shortlist exporteren (FMF)</span>
-      </button>
-      <button id="btn-import-fmf">
-        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21V9m0 0 5 5m-5-5-5 5"/><path d="M5 5h14"/></svg>
-        <span data-i18n="importfmf">FMF importeren</span>
-      </button>
-      <input id="input-import-fmf" type="file" accept=".fmf" hidden>
-      <button id="btn-clear-shortlist">
-        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2m-9 0 1 15h8l1-15"/></svg>
-        <span data-i18n="clearshortlist">Shortlist wissen</span>
-      </button>
-      <span id="shortlist-sync-status" class="dim"></span>
-    </div>
-    <div id="bulk-bar" class="hidden">
-      <span id="bulk-count">0</span>
-      <button id="btn-bulk-add" data-i18n="bulkadd">Aan shortlist toevoegen</button>
-      <button id="btn-bulk-cancel" data-i18n="bulkcancel">Selectie annuleren</button>
-    </div>
-    <div id="intake-bar" class="hidden"></div>
-    <div id="myplayer-team-filters" class="hidden"></div>
-    <div id="chipbar"></div>
-    <div id="table-wrap">
-      <table id="grid">
-        <thead><tr id="grid-head"></tr></thead>
-        <tbody id="grid-body"></tbody>
-      </table>
-    </div>
-    <div id="analysis" class="hidden"></div>
-    <div id="bestxi" class="hidden"></div>
-    <div id="club-list-view" class="hidden">
-      <div class="club-list-toolbar">
-        <h2 data-i18n="clubListTitle">Clubs</h2>
-        <small data-i18n="clubListMissingLegend">â€” means data is not available in this dump</small>
-        <span id="club-list-count" class="dim"></span>
-      </div>
-      <div id="club-list-table-wrap">
-        <table id="club-list-table">
-          <thead><tr id="club-list-head"></tr></thead>
-          <tbody id="club-list-body"></tbody>
-        </table>
-      </div>
-    </div>
-    <div id="empty-state">
-      <div class="es-icon">
-        <svg viewBox="0 0 64 64" width="64" height="64" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round">
-          <circle cx="32" cy="32" r="28"/>
-          <polygon points="32,22 42,29.5 38,41 26,41 22,29.5" fill="currentColor" stroke="none"/>
-          <path d="M32 22V8 M42 29.5 55.5 24.5 M38 41l8.5 11 M26 41l-8.5 11 M22 29.5 8.5 24.5"/>
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>FMSuperScout 24</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="icon" href="logo.svg" type="image/svg+xml" />
+  </head>
+  <body>
+    <header id="topbar">
+      <button id="btn-sidebar" title="Filters">
+        <svg
+          viewBox="0 0 24 24"
+          width="16"
+          height="16"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <line x1="3" y1="6" x2="21" y2="6" />
+          <line x1="3" y1="12" x2="21" y2="12" />
+          <line x1="3" y1="18" x2="21" y2="18" />
         </svg>
+      </button>
+      <img id="brand-logo" src="logo.svg" alt="" width="26" height="26" />
+      <h1>FM<span>Super</span>Scout 24</h1>
+      <nav>
+        <button id="tab-players" class="tab active">Players</button>
+        <button id="tab-shortlist" class="tab">
+          <svg class="star-ic" viewBox="0 0 24 24" width="13" height="13" aria-hidden="true">
+            <path
+              d="M12 2.5l2.94 5.96 6.58.96-4.76 4.64 1.12 6.55L12 17.52l-5.88 3.09 1.12-6.55-4.76-4.64 6.58-.96z"
+            />
+          </svg>
+          <span>Shortlist</span> <span id="sl-count">0</span>
+        </button>
+        <button id="tab-myplayer" class="tab">My Player</button>
+        <button id="tab-analysis" class="tab">Analysis</button>
+        <button id="tab-bestxi" class="tab">Best XI</button>
+        <button id="tab-staff" class="tab">Staff</button>
+        <button id="tab-club-list" class="tab">Club</button>
+      </nav>
+      <div id="club-badge" title="Click = filter on your club"></div>
+      <span id="update-pill" class="hidden"></span>
+      <div id="dump-info"></div>
+      <div id="game-date"></div>
+      <button id="btn-fetch" title="Request a new dump from FM">
+        <svg
+          viewBox="0 0 24 24"
+          width="14"
+          height="14"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+          <polyline points="7 10 12 15 17 10" />
+          <line x1="12" y1="15" x2="12" y2="3" />
+        </svg>
+        <span>New data</span>
+      </button>
+      <button id="btn-reload" title="Reload the latest dump">
+        <svg
+          viewBox="0 0 24 24"
+          width="14"
+          height="14"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <polyline points="23 4 23 10 17 10" />
+          <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+        </svg>
+      </button>
+      <button id="btn-coffee" title="Support FMSuperScout">?</button>
+      <button id="btn-settings" title="Settings" aria-label="Settings">
+        <svg
+          viewBox="0 0 24 24"
+          width="17"
+          height="17"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <circle cx="12" cy="12" r="3" />
+          <path
+            d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"
+          />
+        </svg>
+      </button>
+    </header>
+    <div id="settings-menu" class="hidden">
+      <div class="set-head">Settings</div>
+      <div class="set-row">
+        <span>Currency</span>
+        <select id="sel-cur">
+          <option value="£">£ GBP</option>
+          <option value="€">€ EUR</option>
+          <option value="$">$ USD</option>
+        </select>
       </div>
-      <div id="es-normal">
-        <h2 data-i18n="nodata">Nog geen data geladen</h2>
-        <ol class="es-steps">
-          <li data-i18n-html="step1"></li>
-          <li data-i18n-html="step2"></li>
-          <li data-i18n-html="step3"></li>
-        </ol>
-        <div class="es-help"><span data-i18n="esReportHint">Nieuwe data gedrukt maar geen data?</span>
-          <button id="es-report" data-i18n="reportBug">Probleem meldenâ€¦</button></div>
+      <div class="set-row">
+        <span>Wage per</span>
+        <select id="sel-wageper">
+          <option value="w">week</option>
+          <option value="m">month</option>
+          <option value="y">year</option>
+        </select>
       </div>
-      <div id="es-error" class="hidden"></div>
-      <div id="es-setup" class="hidden"></div>
+      <div class="set-row">
+        <span>Player profile</span>
+        <select id="set-profile">
+          <option value="side">Right side</option>
+          <option value="popup">Popup</option>
+        </select>
+      </div>
+      <div class="set-row">
+        <span><span>Database</span> <span class="col-help" data-help="scanDbHint">?</span></span>
+        <select id="sel-db">
+          <option value="men">Men</option>
+          <option value="women">Women</option>
+          <option value="both">Both</option>
+        </select>
+      </div>
+      <label class="set-row set-toggle"
+        ><span>Show hidden stats</span> <input type="checkbox" id="set-hidecapa"
+      /></label>
+      <label class="set-row set-toggle"
+        ><span>Show meta score</span> <input type="checkbox" id="set-hidemeta"
+      /></label>
+      <div class="set-div"></div>
+      <div class="set-row set-meta-preset">
+        <span
+          style="
+            flex: 1;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          "
+          title=""
+          >Meta weights</span
+        >
+        <span
+          id="meta-preset-name"
+          style="
+            font-size: 0.78em;
+            color: var(--c-dim, #64748b);
+            flex: 1;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            text-align: right;
+          "
+          title=""
+          >…</span
+        >
+      </div>
+      <div class="set-row" style="gap: 6px">
+        <button id="meta-preset-load-btn" class="set-link" style="flex: 1">Load file…</button>
+        <button id="meta-preset-reset-btn" class="set-link" style="flex: 1">
+          Reset to default
+        </button>
+        <button id="meta-preset-edit-btn" class="set-link" style="flex: 1">Edit weights</button>
+      </div>
+      <input type="file" id="meta-preset-file" accept=".json" style="display: none" />
+      <button id="btn-clear-data" class="set-danger">Clear all scouting data</button>
+      <div class="set-div"></div>
+      <div class="set-about">
+        <span id="set-version"></span>
+        <button id="btn-updcheck" class="set-link">Check for updates</button>
+      </div>
+      <div class="set-note" id="upd-note"></div>
+      <button id="btn-report" class="set-report">Report a problem…</button>
     </div>
-  </section>
 
-  <div id="detail-backdrop" class="hidden"></div>
-  <aside id="detail" class="hidden">
-    <button id="detail-close">
-      <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-    </button>
-    <div id="detail-body"></div>
-  </aside>
-</div>
+    <div id="banner" class="hidden"></div>
+    <div id="ver-warn" class="hidden"></div>
+    <div id="main">
+      <aside id="filters">
+        <div class="fgroup">
+          <div class="search-wrap">
+            <svg
+              class="search-ico"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <circle cx="11" cy="11" r="7" />
+              <path d="M21 21l-4.3-4.3" />
+            </svg>
+            <input type="text" id="f-name" placeholder="Search name or club" />
+          </div>
+        </div>
 
-<div id="donate-nudge" class="hidden"></div>
-<div id="preset-modal" class="hidden"></div>
-<div id="adv-modal" class="hidden"></div>
-<div id="compare-tray" class="hidden"></div>
-<div id="compare-modal" class="hidden"><div id="compare-inner"></div></div>
-<div id="weight-editor-modal" onclick="if(event.target.id==='weight-editor-modal')closeWeightEditor()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);backdrop-filter:blur(4px);z-index:10000;align-items:center;justify-content:center;padding:20px;"></div>
-<div id="toast" class="hidden"></div>
-<script src="nations.js"></script>
-<script src="app.js"></script>
-</body>
+        <div class="fsection" id="fg-clubfilters" data-sec="clubfilters" style="display: none">
+          <div class="fsec-head">Club filters</div>
+          <div class="club-filter-search">
+            <label
+              ><span>Club name</span
+              ><input type="text" id="club-filter-name" placeholder="Search club"
+            /></label>
+            <label
+              ><span>Nation</span>
+              <div id="club-nation-search">
+                <input
+                  type="text"
+                  id="club-filter-nation"
+                  autocomplete="off"
+                  placeholder="Search nation"
+                />
+                <div id="club-nation-suggest" class="hidden"></div></div
+            ></label>
+            <label
+              ><span>League</span>
+              <div id="club-league-search">
+                <input
+                  type="text"
+                  id="club-filter-league"
+                  autocomplete="off"
+                  placeholder="Search league"
+                />
+                <div id="club-league-suggest" class="hidden"></div></div
+            ></label>
+          </div>
+          <div class="club-list-range-grid">
+            <label class="club-filter-range" data-filter-key="reputation"
+              ><span>Reputation</span
+              ><span class="club-filter-range-inputs"
+                ><input
+                  type="number"
+                  min="0"
+                  step="1"
+                  data-club-min="reputation"
+                  placeholder="Min" /><input
+                  type="number"
+                  min="0"
+                  step="1"
+                  data-club-max="reputation"
+                  placeholder="Max" /></span
+            ></label>
+            <label class="club-filter-range" data-filter-key="transferBudget"
+              ><span>Transfer budget</span
+              ><span class="club-filter-range-inputs"
+                ><input
+                  type="number"
+                  min="0"
+                  step="1"
+                  data-club-min="transferBudget"
+                  placeholder="Min" /><input
+                  type="number"
+                  min="0"
+                  step="1"
+                  data-club-max="transferBudget"
+                  placeholder="Max" /></span
+            ></label>
+            <label class="club-filter-range" data-filter-key="remainingTransfer"
+              ><span>Transfer remaining</span
+              ><span class="club-filter-range-inputs"
+                ><input
+                  type="number"
+                  min="0"
+                  step="1"
+                  data-club-min="remainingTransfer"
+                  placeholder="Min" /><input
+                  type="number"
+                  min="0"
+                  step="1"
+                  data-club-max="remainingTransfer"
+                  placeholder="Max" /></span
+            ></label>
+            <label class="club-filter-range" data-filter-key="wageBudget"
+              ><span>Wage budget</span
+              ><span class="club-filter-range-inputs"
+                ><input
+                  type="number"
+                  min="0"
+                  step="1"
+                  data-club-min="wageBudget"
+                  placeholder="Min" /><input
+                  type="number"
+                  min="0"
+                  step="1"
+                  data-club-max="wageBudget"
+                  placeholder="Max" /></span
+            ></label>
+            <label class="club-filter-range" data-filter-key="wageUsed"
+              ><span>Wage used</span
+              ><span class="club-filter-range-inputs"
+                ><input
+                  type="number"
+                  min="0"
+                  step="1"
+                  data-club-min="wageUsed"
+                  placeholder="Min" /><input
+                  type="number"
+                  min="0"
+                  step="1"
+                  data-club-max="wageUsed"
+                  placeholder="Max" /></span
+            ></label>
+            <label class="club-filter-range" data-filter-key="balance"
+              ><span>Balance</span
+              ><span class="club-filter-range-inputs"
+                ><input type="number" step="1" data-club-min="balance" placeholder="Min" /><input
+                  type="number"
+                  step="1"
+                  data-club-max="balance"
+                  placeholder="Max" /></span
+            ></label>
+            <label class="club-filter-range" data-filter-key="trainingFacilities"
+              ><span>Training facilities</span
+              ><span class="club-filter-range-inputs"
+                ><input
+                  type="number"
+                  min="0"
+                  max="20"
+                  step="1"
+                  data-club-min="trainingFacilities"
+                  placeholder="Min" /><input
+                  type="number"
+                  min="0"
+                  max="20"
+                  step="1"
+                  data-club-max="trainingFacilities"
+                  placeholder="Max" /></span
+            ></label>
+            <label class="club-filter-range" data-filter-key="youthTrainingFacilities"
+              ><span>Youth training facilities</span
+              ><span class="club-filter-range-inputs"
+                ><input
+                  type="number"
+                  min="0"
+                  max="20"
+                  step="1"
+                  data-club-min="youthTrainingFacilities"
+                  placeholder="Min" /><input
+                  type="number"
+                  min="0"
+                  max="20"
+                  step="1"
+                  data-club-max="youthTrainingFacilities"
+                  placeholder="Max" /></span
+            ></label>
+            <label class="club-filter-range" data-filter-key="juniorCoaching"
+              ><span>Junior coaching</span
+              ><span class="club-filter-range-inputs"
+                ><input
+                  type="number"
+                  min="0"
+                  max="20"
+                  step="1"
+                  data-club-min="juniorCoaching"
+                  placeholder="Min" /><input
+                  type="number"
+                  min="0"
+                  max="20"
+                  step="1"
+                  data-club-max="juniorCoaching"
+                  placeholder="Max" /></span
+            ></label>
+            <label class="club-filter-range" data-filter-key="youthRecruitment"
+              ><span>Youth recruitment network</span
+              ><span class="club-filter-range-inputs"
+                ><input
+                  type="number"
+                  min="0"
+                  max="20"
+                  step="1"
+                  data-club-min="youthRecruitment"
+                  placeholder="Min" /><input
+                  type="number"
+                  min="0"
+                  max="20"
+                  step="1"
+                  data-club-max="youthRecruitment"
+                  placeholder="Max" /></span
+            ></label>
+          </div>
+        </div>
+
+        <div class="fsection" id="fg-presets" data-sec="presets">
+          <div class="fsec-head">Saved filters</div>
+          <div id="preset-dd">
+            <button id="preset-dd-btn" type="button" disabled>
+              <span id="preset-dd-label"></span>
+              <svg
+                class="chev"
+                viewBox="0 0 24 24"
+                width="12"
+                height="12"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </button>
+            <div id="preset-dd-menu" class="hidden"></div>
+          </div>
+          <button id="btn-preset-save">
+            <svg
+              viewBox="0 0 24 24"
+              width="13"
+              height="13"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+              <polyline points="17 21 17 13 7 13 7 21" />
+              <polyline points="7 3 7 8 15 8" />
+            </svg>
+            <span>Save current filters</span>
+          </button>
+        </div>
+
+        <div class="fsection" id="f-meta-group-row">
+          <div class="frow">
+            <span>Show meta for position...</span
+            ><select id="f-meta-group"></select>
+          </div>
+        </div>
+
+        <div class="fsection" id="fg-pitch" data-sec="pitch">
+          <div class="fsec-head">Position</div>
+          <div id="pitch-wrap"></div>
+          <div
+            style="
+              display: flex;
+              align-items: center;
+              gap: 6px;
+              margin-top: 5px;
+              font-size: 0.82em;
+              opacity: 0.75;
+            "
+          >
+            <label for="f-prof-threshold">Min. proficiency</label>
+            <input
+              type="number"
+              id="f-prof-threshold"
+              min="1"
+              max="20"
+              value="15"
+              style="width: 42px; padding: 1px 3px"
+            />
+          </div>
+        </div>
+
+        <div class="fsection" id="fg-gender" style="display: none">
+          <div class="fsec-head">Gender</div>
+          <select id="f-gender">
+            <option value="">Both</option>
+            <option value="m">Men</option>
+            <option value="v">Women</option>
+          </select>
+        </div>
+
+        <div class="fsection" id="fg-staffrole" data-sec="staffrole" style="display: none">
+          <div class="fsec-head">Staff role</div>
+          <select id="f-staffrole">
+            <option value="">–</option>
+          </select>
+          <label class="chk" id="f-staff-recruitable-row"
+            ><input type="checkbox" id="f-staff-recruitable" checked />
+            <span>Hide non-recruitable staff</span></label
+          >
+        </div>
+
+        <div class="fsection" data-sec="role" id="fg-role">
+          <div class="fsec-head">Tactical role</div>
+          <select id="f-role"></select>
+        </div>
+
+        <div class="fsection" data-sec="quality">
+          <div class="fsec-head">Quality &amp; age</div>
+          <div class="frow">
+            <span>Age</span>
+            <div class="range2">
+              <input type="number" id="f-age-min" placeholder="–" />–<input
+                type="number"
+                id="f-age-max"
+                placeholder="–"
+              />
+            </div>
+          </div>
+          <div class="frow capa-row">
+            <span>CA</span>
+            <div class="range2">
+              <input type="number" id="f-ca-min" placeholder="–" />–<input
+                type="number"
+                id="f-ca-max"
+                placeholder="–"
+              />
+            </div>
+          </div>
+          <div class="frow capa-row">
+            <span>PA</span>
+            <div class="range2">
+              <input type="number" id="f-pa-min" placeholder="–" />–<input
+                type="number"
+                id="f-pa-max"
+                placeholder="–"
+              />
+            </div>
+          </div>
+          <div class="frow meta-row" id="f-meta-row">
+            <span>Meta <span class="col-help" data-help="metaHint">?</span></span>
+            <div class="range2">
+              <input type="number" id="f-meta-min" placeholder="–" />–<input
+                type="number"
+                id="f-meta-max"
+                placeholder="–"
+              />
+            </div>
+          </div>
+          <div class="frow meta-row capa-row" id="f-metapa-row">
+            <span>PA-meta <span class="col-help" data-help="metaPaHint">?</span></span>
+            <div class="range2">
+              <input type="number" id="f-metapa-min" placeholder="–" />–<input
+                type="number"
+                id="f-metapa-max"
+                placeholder="–"
+              />
+            </div>
+          </div>
+          <label class="chk capa-row" id="f-wonderkid-row"
+            ><input type="checkbox" id="f-wonderkid" />
+            <span>Wonderkids only</span>
+            <span class="col-help" data-help="wonderkidHint">?</span></label
+          >
+          <button id="btn-adv" type="button"></button>
+        </div>
+
+        <div class="fsection" data-sec="development" id="fg-development" style="display: none">
+          <div class="fsec-head">Development</div>
+          <div class="frow">
+            <span>Period</span>
+            <select id="f-hist-period">
+              <option value="last">Since last dump</option>
+              <option value="m6">Last 6 months</option>
+              <option value="y1">Last year</option>
+              <option value="season">This season</option>
+              <option value="all">Since tracking began</option>
+            </select>
+          </div>
+          <div class="frow">
+            <span><span>Growth</span> <span class="col-help" data-help="growthHint">?</span></span>
+            <div class="range2">
+              <input type="number" id="f-growth-min" placeholder="–" />–<input
+                type="number"
+                id="f-growth-max"
+                placeholder="–"
+              />
+            </div>
+          </div>
+          <label class="chk"
+            ><input type="checkbox" id="f-new" /> <span>Only new players</span>
+            <span class="col-help" data-help="onlyNewHint">?</span></label
+          >
+        </div>
+
+        <div class="fsection" data-sec="physical" id="fg-physical">
+          <div class="fsec-head">Physical</div>
+          <div class="frow">
+            <span>Height (cm)</span>
+            <div class="range2">
+              <input type="number" id="f-height-min" placeholder="–" />–<input
+                type="number"
+                id="f-height-max"
+                placeholder="–"
+              />
+            </div>
+          </div>
+          <div class="frow">
+            <span>Foot</span>
+            <select id="f-foot">
+              <option value="">All</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="fsection" data-sec="financial">
+          <div class="fsec-head">Financial</div>
+          <div class="frow" id="f-price-row">
+            <span>Max. value</span><input type="text" id="f-price" placeholder="10M" />
+          </div>
+          <div class="frow capa-row" id="f-fee-row">
+            <span>Max. asking price</span><input type="text" id="f-fee" placeholder="15M" />
+          </div>
+          <div class="frow">
+            <span id="f-wage-label">Maximum wage</span
+            ><input type="text" id="f-wage" placeholder="50K" />
+          </div>
+        </div>
+
+        <div class="fsection" data-sec="origin">
+          <div class="fsec-head">Origin &amp; competition</div>
+          <div class="frow">
+            <span>Nationality</span><input type="text" id="f-nat" placeholder="Netherlands" />
+          </div>
+          <label class="chk"><input type="checkbox" id="f-eu" /> <span>EU/EEA only</span></label>
+          <div class="fgroup" id="fg-div" style="display: none">
+            <label>Division</label>
+            <div id="div-search">
+              <input type="text" id="f-div" autocomplete="off" placeholder="Type a competition…" />
+              <div id="div-suggest" class="hidden"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="fsection" data-sec="availability">
+          <div class="fsec-head">Availability</div>
+          <div class="frow" id="f-interest-row">
+            <span
+              ><span>Interest =</span>
+              <span class="col-help" data-help="interestHint">?</span></span
+            >
+            <select id="f-interest">
+              <option value="0">All</option>
+              <option value="25">Low</option>
+              <option value="45">Fair</option>
+              <option value="70">High</option>
+            </select>
+          </div>
+          <div class="frow" id="f-tstatus-row">
+            <span>Transfer status</span>
+            <select id="f-tstatus">
+              <option value="">All</option>
+              <option value="sale">For sale</option>
+              <option value="loan">For loan</option>
+              <option value="any">For sale or loan</option>
+            </select>
+          </div>
+          <div class="frow">
+            <span>Contract</span>
+            <select id="f-contract">
+              <option value="">All</option>
+              <option value="free">Free agent</option>
+              <option value="exp6">&lt; 6 mo</option>
+              <option value="exp12">&lt; 1 yr</option>
+            </select>
+          </div>
+          <label class="chk" id="f-myclub-row"
+            ><input type="checkbox" id="f-myclub" /> <span>My club</span></label
+          >
+          <div id="myteam-chips" style="display: none"></div>
+          <label class="chk" id="f-shortlist-row"
+            ><input type="checkbox" id="f-shortlist" /> <span>Shortlist only</span></label
+          >
+        </div>
+
+        <button id="btn-clear">Clear filters</button>
+      </aside>
+
+      <section id="content">
+        <div id="sl-bar" class="hidden">
+          <button id="btn-shortlist-sync" title="Open FM24 &gt; Scouting &gt; Shortlist first">
+            <svg
+              viewBox="0 0 24 24"
+              width="14"
+              height="14"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <polyline points="23 4 23 10 17 10" />
+              <path d="M20.5 15a9 9 0 1 1-2.1-9.4L23 10" />
+            </svg>
+            <span>Get list from FM24</span>
+          </button>
+          <button id="btn-export">
+            <svg
+              viewBox="0 0 24 24"
+              width="14"
+              height="14"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+            <span>Export shortlist (CSV)</span>
+          </button>
+          <button id="btn-export-fmf">
+            <svg
+              viewBox="0 0 24 24"
+              width="14"
+              height="14"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path d="M12 3v12m0 0 5-5m-5 5-5-5" />
+              <path d="M5 19h14" />
+            </svg>
+            <span>Export shortlist (FMF)</span>
+          </button>
+          <button id="btn-import-fmf">
+            <svg
+              viewBox="0 0 24 24"
+              width="14"
+              height="14"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path d="M12 21V9m0 0 5 5m-5-5-5 5" />
+              <path d="M5 5h14" />
+            </svg>
+            <span>Import FMF</span>
+          </button>
+          <input id="input-import-fmf" type="file" accept=".fmf" hidden />
+          <button id="btn-clear-shortlist">
+            <svg
+              viewBox="0 0 24 24"
+              width="14"
+              height="14"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path d="M3 6h18M8 6V4h8v2m-9 0 1 15h8l1-15" />
+            </svg>
+            <span>Clear shortlist</span>
+          </button>
+          <span id="shortlist-sync-status" class="dim"></span>
+        </div>
+        <div id="bulk-bar" class="hidden">
+          <span id="bulk-count">0</span>
+          <button id="btn-bulk-add">Add to shortlist</button>
+          <button id="btn-bulk-cancel">Cancel selection</button>
+        </div>
+        <div id="intake-bar" class="hidden"></div>
+        <div id="myplayer-team-filters" class="hidden"></div>
+        <div id="chipbar"></div>
+        <div id="table-wrap">
+          <table id="grid">
+            <thead>
+              <tr id="grid-head"></tr>
+            </thead>
+            <tbody id="grid-body"></tbody>
+          </table>
+        </div>
+        <div id="analysis" class="hidden"></div>
+        <div id="bestxi" class="hidden"></div>
+        <div id="club-list-view" class="hidden">
+          <div class="club-list-toolbar">
+            <h2>Clubs</h2>
+            <small>— means data is not available in this dump</small>
+            <span id="club-list-count" class="dim"></span>
+          </div>
+          <div id="club-list-table-wrap">
+            <table id="club-list-table">
+              <thead>
+                <tr id="club-list-head"></tr>
+              </thead>
+              <tbody id="club-list-body"></tbody>
+            </table>
+          </div>
+        </div>
+        <div id="empty-state">
+          <div class="es-icon">
+            <svg
+              viewBox="0 0 64 64"
+              width="64"
+              height="64"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.5"
+              stroke-linejoin="round"
+            >
+              <circle cx="32" cy="32" r="28" />
+              <polygon
+                points="32,22 42,29.5 38,41 26,41 22,29.5"
+                fill="currentColor"
+                stroke="none"
+              />
+              <path
+                d="M32 22V8 M42 29.5 55.5 24.5 M38 41l8.5 11 M26 41l-8.5 11 M22 29.5 8.5 24.5"
+              />
+            </svg>
+          </div>
+          <div id="es-normal">
+            <h2>No data loaded yet</h2>
+            <ol class="es-steps">
+              <li>Start <b>FM24</b> and load your save</li>
+              <li>Click <b>New data</b> here</li>
+              <li>The data loads automatically once the dump is ready</li>
+            </ol>
+            <div class="es-help">
+              <span>Pressed New data but no data?</span>
+              <button id="es-report">Report a problem…</button>
+            </div>
+          </div>
+          <div id="es-error" class="hidden"></div>
+          <div id="es-setup" class="hidden"></div>
+        </div>
+      </section>
+
+      <div id="detail-backdrop" class="hidden"></div>
+      <aside id="detail" class="hidden">
+        <button id="detail-close">
+          <svg
+            viewBox="0 0 24 24"
+            width="15"
+            height="15"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+          >
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </button>
+        <div id="detail-body"></div>
+      </aside>
+    </div>
+
+    <div id="donate-nudge" class="hidden"></div>
+    <div id="preset-modal" class="hidden"></div>
+    <div id="adv-modal" class="hidden"></div>
+    <div id="compare-tray" class="hidden"></div>
+    <div id="compare-modal" class="hidden"><div id="compare-inner"></div></div>
+    <div
+      id="weight-editor-modal"
+      onclick="if (event.target.id === 'weight-editor-modal') closeWeightEditor();"
+      style="
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.85);
+        backdrop-filter: blur(4px);
+        z-index: 10000;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+      "
+    ></div>
+    <div id="toast" class="hidden"></div>
+    <script defer src="nations.js"></script>
+    <script defer src="scripts/00-state-and-text.js"></script>
+    <script defer src="scripts/01-presentation-and-history.js"></script>
+    <script defer src="scripts/02-player-models.js"></script>
+    <script defer src="scripts/03-data-loading.js"></script>
+    <script defer src="scripts/04-filters.js"></script>
+    <script defer src="scripts/05-table.js"></script>
+    <script defer src="scripts/06-shortlist-and-clipboard.js"></script>
+    <script defer src="scripts/07-player-profile.js"></script>
+    <script defer src="scripts/08-app-services.js"></script>
+    <script defer src="scripts/09-best-xi.js"></script>
+    <script defer src="scripts/10-club-and-squad-analysis.js"></script>
+    <script defer src="scripts/11-meta-preset-and-weight-editor.js"></script>
+    <script defer src="scripts/12-ui-controls.js"></script>
+  </body>
 </html>

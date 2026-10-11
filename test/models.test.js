@@ -1,26 +1,24 @@
-// Modeltests voor FMSuperScout — draai met:  node --test
-// Zero-dependency (node:test + node:assert), past bij de rest van de stack.
-// We testen de ECHTE functies uit app/app.js via het harnas. Dit vangt regressies bij het
-// bijstellen van de reken-modellen (waarde/interesse/potentie/rol) zonder handmatig herijken.
+// Model tests for FMSuperScout. Run them with `node --test`.
+// These dependency-free tests exercise the real frontend functions through the harness.
 'use strict';
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { loadApp } = require('./harness');
 
 const M = loadApp();
-// Vaste context i.p.v. localStorage/dump: peiljaar en valuta bekend maken.
+// Use a fixed context instead of local storage or a dump.
 M.state.cur = '£';
 M.state.refYear = 2027;
 M.state.refDoy = 1;
 M.state.meta = { gameDate: '2027-01-01', gameYear: 2027, myClub: 'Testclub', myClubRep: 6000 };
 M.state.players = [];
 
-// Representatieve speler; velden zoals de plugin ze dumpt.
+// Representative player with fields matching the plugin dump.
 function player(over = {}) {
   return Object.assign({
-    id: 1, name: 'Test Speler', birthYear: 2006, birthDoy: 1, age: 21,
-    club: 'Andere Club', clubRep: 3000, worldRep: 2000, wage: 20000,
-    ca: 120, pa: 150, pos: 'ST', posArr: ['ST'], nat: ['Netherlands'], foot: 'Rechts',
+    id: 1, name: 'Test Player', birthYear: 2006, birthDoy: 1, age: 21,
+    club: 'Other Club', clubRep: 3000, worldRep: 2000, wage: 20000,
+    ca: 120, pa: 150, pos: 'ST', posArr: ['ST'], nat: ['Netherlands'], foot: 'Right',
     value: 5_000_000, expires: '2028-06-30',
     attrs: {
       Finishing: 14, Passing: 11, Technique: 13, FirstTouch: 13, Dribbling: 12, Marking: 5, Tackling: 6,
@@ -33,18 +31,18 @@ function player(over = {}) {
 }
 
 // ---------- parseMoney ----------
-test('parseMoney: eenheden en randgevallen (£)', () => {
+test('parseMoney: units and edge cases (£)', () => {
   assert.equal(M.parseMoney('10M'), 10_000_000);
   assert.equal(M.parseMoney('50K'), 50_000);
   assert.equal(M.parseMoney('1.8m'), 1_800_000);
-  assert.equal(M.parseMoney('2mld'), 2_000_000_000);
-  assert.equal(M.parseMoney('1,5M'), 1_500_000);   // komma als decimaal
+  assert.equal(M.parseMoney('2B'), 2_000_000_000);
+  assert.equal(M.parseMoney('1,5M'), 1_500_000); // Comma as the decimal separator.
   assert.equal(M.parseMoney(''), null);
   assert.equal(M.parseMoney('   '), null);
 });
 
-test('parseMoney: valuta terug naar interne GBP', () => {
-  const near = (a, b) => Math.abs(a - b) < 1;   // deling geeft floating-point-ruis
+test('parseMoney: currencies convert back to internal GBP', () => {
+  const near = (a, b) => Math.abs(a - b) < 1; // Division can introduce floating-point noise.
   M.state.cur = '€';
   assert.ok(near(M.parseMoney('1.16M'), 1_000_000), '€1,16M → £1M');
   M.state.cur = '$';
@@ -54,89 +52,89 @@ test('parseMoney: valuta terug naar interne GBP', () => {
 });
 
 // ---------- monthsUntil ----------
-test('monthsUntil: t.o.v. in-game datum', () => {
+test('monthsUntil: relative to the in-game date', () => {
   assert.equal(M.monthsUntil(null), null);
-  const half = M.monthsUntil('2027-07-01');   // ~6 maanden na 2027-01-01
+  const half = M.monthsUntil('2027-07-01'); // About six months after 2027-01-01.
   assert.ok(half > 5.5 && half < 6.5, `verwacht ~6, kreeg ${half}`);
   assert.ok(M.monthsUntil('2026-07-01') < 0, 'verleden = negatief');
 });
 
-// ---------- projectAttrs (potentie) ----------
-test('projectAttrs: PA<=CA geeft geen projectie', () => {
+// ---------- projectAttrs (potential) ----------
+test('projectAttrs: PA <= CA returns no projection', () => {
   assert.equal(M.projectAttrs(player({ ca: 150, pa: 150 })), null);
   assert.equal(M.projectAttrs(player({ ca: 150, pa: 120 })), null);
 });
 
-test('projectAttrs: groeit, blijft <=20, laat verborgen kenmerken met rust', () => {
+test('projectAttrs: grows without exceeding 20 or projecting hidden attributes', () => {
   const p = player({ ca: 100, pa: 160, age: 18 });
   const proj = M.projectAttrs(p);
   for (const k of Object.keys(p.attrs)) {
     if (['Consistency', 'ImportantMatches', 'Versatility', 'InjuryProneness', 'Dirtiness'].includes(k)) {
-      assert.equal(proj[k], undefined, `verborgen kenmerk ${k} mag niet geprojecteerd worden`);
+      assert.equal(proj[k], undefined, `Hidden attribute ${k} should not be projected`);
     } else {
-      assert.ok(proj[k] >= p.attrs[k], `${k} mag niet dalen`);
-      assert.ok(proj[k] <= 20, `${k} mag niet boven 20`);
+      assert.ok(proj[k] >= p.attrs[k], `${k} should not decrease`);
+      assert.ok(proj[k] <= 20, `${k} should not exceed 20`);
     }
   }
 });
 
-test('projectAttrs: fysiek bevriest bij oudere speler, mentaal groeit door', () => {
-  // Leeftijd via birthYear (getAge geeft birthYear voorrang boven het age-veld). refYear = 2027.
-  const young = M.projectAttrs(player({ ca: 145, pa: 162, birthYear: 2005 }));   // 22
-  const old = M.projectAttrs(player({ ca: 145, pa: 162, birthYear: 1996 }));     // 31
+test('projectAttrs: physical growth slows with age while mental growth continues', () => {
+  // getAge prefers birthYear over age; refYear is 2027.
+  const young = M.projectAttrs(player({ ca: 145, pa: 162, birthYear: 2005 })); // 22
+  const old = M.projectAttrs(player({ ca: 145, pa: 162, birthYear: 1996 })); // 31
   const baseAttrs = player().attrs;
   const base = { attrs: baseAttrs };
-  // Snelheidsgroei jong > oud (bij oud vrijwel bevroren)
+  // A young player's pace should grow at least as much as an older player's.
   const paceGrowYoung = young.Pace - base.attrs.Pace;
   const paceGrowOld = old.Pace - base.attrs.Pace;
-  assert.ok(paceGrowYoung >= paceGrowOld, 'jonge speler groeit fysiek minstens zo hard als oude');
-  assert.ok(paceGrowOld <= 1, 'oude speler wint nauwelijks snelheid');
-  // Mentale groei bij de oudere speler nog aanwezig
-  assert.ok(old.Determination >= base.attrs.Determination, 'mentaal groeit ook op leeftijd');
+  assert.ok(paceGrowYoung >= paceGrowOld, 'Younger players should grow physically at least as much');
+  assert.ok(paceGrowOld <= 1, 'Older players should gain little pace');
+  // Mental attributes can still improve at an older age.
+  assert.ok(old.Determination >= base.attrs.Determination, 'Mental attributes can still grow with age');
 });
 
 // ---------- estValue ----------
-test('estValue: echte in-game waarde komt er 1:1 uit (geen schatting)', () => {
+test('estValue: preserves a real in-game value without estimating', () => {
   const ev = M.estValue(player({ value: 8_000_000 }));
   assert.equal(ev.v, 8_000_000);
   assert.equal(ev.est, false);
 });
 
-test('estValue: zonder echte waarde schat het een positief bereik', () => {
+test('estValue: estimates a non-negative value when the dump has none', () => {
   const ev = M.estValue(player({ value: 0, worldRep: 4000 }));
   assert.equal(ev.est, true);
   assert.ok(ev.v == null || ev.v >= 0);
-  // hogere reputatie => hogere schatting
+  // Higher reputation should result in a higher estimate.
   const lo = M.estValue(player({ value: 0, worldRep: 1000 }));
   const hi = M.estValue(player({ value: 0, worldRep: 7000 }));
-  assert.ok(hi.v >= lo.v, 'meer reputatie => hogere schatting');
+  assert.ok(hi.v >= lo.v, 'Higher reputation should produce a higher estimate');
 });
 
 // ---------- interestEstimate ----------
-test('interestEstimate: onbekende leeftijd wordt NIET als minderjarige behandeld', () => {
+test('interestEstimate: unknown age is not treated as a minor', () => {
   const unknown = M.interestEstimate(player({ age: 0, birthYear: 0 }));
-  assert.ok(unknown && unknown.note !== 'minor', 'age 0 mag geen minor-cap krijgen');
-  assert.ok(unknown.score > 6, `onbekende leeftijd mag niet op minor-cap (6) blijven, kreeg ${unknown.score}`);
+  assert.ok(unknown && unknown.note !== 'minor', 'Age 0 should not receive the minor cap');
+  assert.ok(unknown.score > 6, `Unknown age should not remain capped at 6; received ${unknown.score}`);
   const realMinor = M.interestEstimate(player({ age: 14, birthYear: 2013 }));
   assert.equal(realMinor.note, 'minor');
   assert.ok(realMinor.score <= 6);
 });
 
-test('interestEstimate: eigen speler => null', () => {
+test('interestEstimate: returns null for a player at the current club', () => {
   assert.equal(M.interestEstimate(player({ club: 'Testclub' })), null);
 });
 
 // ---------- roleScore ----------
-test('roleScore: betere attributen => hogere rolscore', () => {
+test('roleScore: better attributes produce a higher role score', () => {
   const roles = M.ROLES || [];
-  assert.ok(roles.length, 'er zijn rollen gedefinieerd');
+  assert.ok(roles.length, 'At least one role should be defined');
   const role = roles[0];
   const weak = player();
   const strong = player();
   for (const k of Object.keys(strong.attrs)) strong.attrs[k] = Math.min(20, weak.attrs[k] + 4);
   const sWeak = M.roleScore(weak, role);
   const sStrong = M.roleScore(strong, role);
-  assert.ok(sStrong >= sWeak, `sterker profiel moet minstens even hoog scoren (${sStrong} vs ${sWeak})`);
+  assert.ok(sStrong >= sWeak, `A stronger profile should score at least as high (${sStrong} vs ${sWeak})`);
 });
 
 test('advValue & advLabel: reads staff attributes for staff members', () => {
@@ -145,9 +143,7 @@ test('advValue & advLabel: reads staff attributes for staff members', () => {
   assert.equal(M.advValue(staffMember, 'Aanvallen'), 16);
   assert.equal(M.advValue(staffMember, 'UnknownAttr'), null);
 
-  M.state.lang = 'en';
   assert.equal(M.advLabel('Oordeel_vermogen'), 'Judging Player Ability');
-  M.state.lang = 'nl';
-  assert.equal(M.advLabel('Oordeel_vermogen'), 'Oordeel vermogen');
+  assert.equal(M.advLabel('Aanvallen'), 'Attacking');
 });
 
