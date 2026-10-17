@@ -38,8 +38,6 @@ function filterResultStamp() {
       playerCount: state.players.length,
       staffCount: state.staff.length,
       colCfg: state.colCfg,
-      wageCeil: state._wageCeil,
-      clubWages: state._clubWages,
     }),
   };
 }
@@ -61,6 +59,7 @@ function restoreFilterResultCache(mode) {
   const cached = FILTER_RESULT_CACHE.get(mode);
   if (!cached || !sameFilterResultStamp(cached.stamp, filterResultStamp())) return false;
   state.filtered = cached.rows;
+  state.nativeTransferCandidates = cached.nativeCandidates || [];
   return true;
 }
 
@@ -68,6 +67,7 @@ function saveFilterResultCache() {
   FILTER_RESULT_CACHE.set(state.mode, {
     stamp: filterResultStamp(),
     rows: state.filtered,
+    nativeCandidates: state.nativeTransferCandidates,
   });
 }
 
@@ -119,7 +119,7 @@ function applyFilters() {
   const wantMeta = state.mode !== 'staff' && (metaMin > 0 || metaMax < 99);
   const wantMetaPa = state.mode !== 'staff' && !state.hideCapa && (mpMin > 0 || mpMax < 99);
   const price = parseMoney($('f-price').value);
-  const fee = parseMoney($('f-fee').value);
+  const fee = $('f-fee').disabled ? null : parseMoney($('f-fee').value);
   // Max. wage entry follows the selected display period; internally we compare weekly.
   const wageIn = parseMoney($('f-wage').value);
   const wage = wageIn == null ? null : wageIn / wageFactor();
@@ -138,11 +138,19 @@ function applyFilters() {
   const onlyWk = state.mode !== 'staff' && !state.hideCapa && $('f-wonderkid').checked;
   const onlyEu = $('f-eu').checked,
     onlyMyClub = $('f-myclub').checked;
-  const minInterest = +$('f-interest').value || 0;
+  const interestSelect = $('f-interest');
+  const interestFilter = interestSelect.disabled || interestSelect.value === ''
+    ? -1
+    : Number(interestSelect.value);
   const tstatus = $('f-tstatus').value,
     contractF = $('f-contract').value;
   const onlySl = state.mode !== 'staff' && ($('f-shortlist').checked || state.mode === 'shortlist');
   const advRules = activeAdvRules();
+  const nativeCandidates = [];
+  const needsNativeFields = state.mode !== 'staff' && state.nativeTransfer?.available &&
+    (price != null || fee != null || interestFilter >= 0);
+  const sortsNativeFields = state.mode !== 'staff' && state.nativeTransfer?.available &&
+    ['value', 'fee', 'interest'].includes(state.sortKey);
   const selectedPositions = activePos.size ? [...activePos] : null;
   const myPlayerTeams = state.mode === 'myplayer' ? myPlayerSelectedTeamGroups() : null;
   const staffRole = $('f-staffrole').value;
@@ -176,8 +184,6 @@ function applyFilters() {
       const s = metaPaScore(p);
       if (s == null || s < mpMin || s > mpMax) return false;
     }
-    if (price != null && (estValue(p).v ?? Infinity) > price) return false;
-    if (fee != null && (feeEstimate(p).v ?? Infinity) > fee) return false;
     if (wage != null && (p.wage ?? Infinity) > wage) return false;
     if (
       nat &&
@@ -234,10 +240,6 @@ function applyFilters() {
       const m = monthsUntil(p.expires);
       if (m == null || m > (contractF === 'exp6' ? 6 : 12)) return false;
     }
-    if (minInterest > 0) {
-      const i = interestEstimate(p);
-      if (!i || i.score < minInterest) return false;
-    }
     // Match players listed for transfer, listed for loan (plugin v0.1.36+), or either status.
     if (tstatus === 'sale' && !p.listed) return false;
     if (tstatus === 'loan' && !p.loanListed) return false;
@@ -262,8 +264,16 @@ function applyFilters() {
     if (gsel === 'v' && p.gender !== 1) return false;
     if (divVal && !(p._divisionQ ??= foldSearchText(playerDivisionLabel(p))).includes(divVal))
       return false;
+    if ((needsNativeFields || sortsNativeFields) && !p.nativeTransferRead) {
+      nativeCandidates.push(p);
+      if (needsNativeFields) return false;
+    }
+    if (price != null && (fmValue(p).v ?? Infinity) > price) return false;
+    if (fee != null && (fmAskingPrice(p).v ?? Infinity) > fee) return false;
+    if (interestFilter >= 0 && gameInterestOrder(gameInterestLabel(p)) < interestFilter) return false;
     return true;
   });
+  state.nativeTransferCandidates = nativeCandidates;
   sortRows();
   saveFilterResultCache();
   renderChips(buildChips());
@@ -313,7 +323,8 @@ function updateSecDots() {
     origin: !!(val('f-nat') || $('f-eu').checked || val('f-div')),
     availability:
       (state.mode !== 'staff' &&
-        (+$('f-interest').value > 0 || !!$('f-tstatus').value || $('f-shortlist').checked)) ||
+        ((!$('f-interest').disabled && $('f-interest').value !== '') ||
+          !!$('f-tstatus').value || $('f-shortlist').checked)) ||
       !!$('f-contract').value ||
       $('f-myclub').checked,
   };
@@ -389,9 +400,9 @@ function buildChips() {
   if (v('f-wage')) add(`${text('maxwage')} ${v('f-wage')}`, clearInput('f-wage'));
   if (v('f-nat')) add(`${text('nat')}: ${v('f-nat')}`, clearInput('f-nat'));
   if ($('f-eu').checked) add(text('euonly'), uncheck('f-eu'));
-  if (+$('f-interest').value > 0)
+  if (!$('f-interest').disabled && $('f-interest').value !== '')
     add(`${text('interestmin')} ${$('f-interest').selectedOptions[0].textContent}`, () => {
-      $('f-interest').value = '0';
+      $('f-interest').value = '';
     });
   if ($('f-tstatus').value)
     add(`${text('tstatus')}: ${$('f-tstatus').selectedOptions[0].textContent}`, () => {
@@ -467,6 +478,7 @@ const PRESET_CHECK_IDS = ['f-eu', 'f-myclub', 'f-shortlist', 'f-wonderkid', 'f-n
 // Store the reference period with the preset so growth filters use the same date range when restored.
 const PRESET_SELECT_IDS = [
   'f-interest',
+  'f-interest-kind',
   'f-staffrole',
   'f-role',
   'f-contract',
@@ -519,7 +531,10 @@ function applyPreset(s) {
   for (const [id, value] of Object.entries(s.check || {}))
     if ($(id)) $(id).checked = value !== false;
   if (s.select?.['f-staffrole']) {
-    const oldRole = state.staff.find((p) => p.job === s.select['f-staffrole']);
+    const selectedRole = s.select['f-staffrole'];
+    const oldRole = state.staff.find(
+      (p) => p.job === selectedRole || currentJobLabel(p) === selectedRole,
+    );
     if (oldRole) s.select['f-staffrole'] = staffRoleKey(oldRole);
   }
   for (const [id, v] of Object.entries(s.select || {})) if ($(id)) $(id).value = v;

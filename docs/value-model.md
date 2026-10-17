@@ -1,17 +1,30 @@
-# Market value and interest estimation
+# Historical market value and interest models (inactive)
 
 ## FM24 native-reader fields
 
-The FM24 reader reads the game's guide/market value from `plao + 0x1B0` when the value is present.
-That stored value is not the club's asking price. The app estimates a transfer fee from the guide
-value and player/club context; it labels that figure as an estimate. FM calculates an actual demand
-through the transfer negotiation, and the reader has no verified static asking-price field.
+Current app behavior:
+
+- The stored guide value is `plao + 0x1D0`; the former `+0x1B0` offset was wrong.
+  Live queries evaluate FM's valuation UI builder to obtain the displayed range for the
+  current manager. Unknown ranges remain unknown. Old dumps with the wrong offset are ignored.
+- **AI minimum bid** is the buyer-specific cash boundary returned by FM's offer-value
+  evaluator, verified with offers at that amount and one pound below in isolated memory.
+  It is not a listed asking price. Other transfer restrictions can still block the deal.
+- Transfer and loan interest use FM's actual search filters and six menu thresholds.
+  The selected level means “at least”, matching the game. Failed queries remain unavailable.
+
+See [native transfer research](fm24-transfer-research.md) for the assembly evidence,
+supported-build gate, calling conventions and limitations. No estimation model supplies
+these fields, and no offers are submitted to the running game.
+
+The remaining sections document prior estimation experiments. Their models are no longer used by
+the app.
 
 Transfer status comes from the FM24 contract flags at `contract + 0x48`: bit 3 means listed by
 request, bit 5 means set for release, bit 1 means available for loan, bit 6 blocks loan listing,
 and bit 4 means not for sale. Bit 0 is not a transfer-list flag.
 
-## Calibration set (removed 15-07)
+## Historical calibration set (removed 15-07)
 
 There used to be an automatic calibration set: on every dump the server stored the players with a real
 in-game value in `value-history.json` (deduped on id). Now that the plugin reads the real transfer value
@@ -20,7 +33,7 @@ redundant, it only kept growing. Removed: the archiving,
 the `/api/value-history` endpoint and the file. If the estimation model ever needs recalibrating
 (e.g. after a major FM patch), collection can be switched back on temporarily.
 
-## Update: reputation-driven model
+## Historical update: reputation-driven model
 
 After more real amounts came in (including mid-range players such as Bidstrup €17M, Beukema €14M), the
 CA-driven model turned out to overshoot the mid-range badly (Bidstrup came out at €62M). Analysis of the data:
@@ -32,7 +45,7 @@ Result: the mid-range is right (Bidstrup £17M, Beukema £14M), the top is tempe
 Limitation: a strong player with low fame tends to be underestimated. The truly accurate route is reading
 the value from memory (GenieScout does this via a memory agent), see `backlog.md`.
 
-## Market value (estValue in app/app.js), historical (CA-driven, replaced)
+## Historical market value estimate (not used)
 
 FM computes transfer value internally (undocumented) and stores
 `0xFFFFFFFF`/no value for most players; only a handful of players have a concrete value in
@@ -65,10 +78,10 @@ is right (real values £236M/£185M/£187M). Players with a real stored value sh
 cannot read reliably: two 16-year-olds with identical CA/PA can be worth £1M vs £40M.
 The estimate for players aged 20 and under is therefore rough and gets a wider band (±55%).
 
-Coefficients live in `VAL_B` in app.js. More calibration points (especially real teenager values and
-lower leagues) would sharpen the edges further.
+The former coefficients lived in `VAL_B`; that estimator was removed when the app switched to
+showing only values available in the FM player data.
 
-## Asking price / transfer fee (feeMultiplier in app/app.js)
+## Historical asking price / transfer fee estimate (not used)
 
 Estimates what **your club** is likely to pay (value × markup). Core principles:
 
@@ -91,7 +104,7 @@ Calibration point: Cho Wi-Je (value £1M, paid £1.8M) comes out at ~×1.6-1.9 w
 buying club. What cannot be captured: competing bids, budgets and
 negotiation dynamics. It remains an indication, so the profile shows a band.
 
-## Interest (interestEstimate in app/app.js)
+## Historical interest estimate (not used)
 
 There is no ground truth in the dump (FM does not record an "interest" number), so this stays a
 heuristic. Research (SI forum, community) confirms the factors used are the right ones:

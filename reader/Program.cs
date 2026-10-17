@@ -172,6 +172,7 @@ internal sealed class DumpMeta
     public uint myClubId { get; set; }
     public int myClubRep { get; set; }
     public string currency { get; set; } = "GBP";
+    public string playerValueSource { get; set; } = "fm24-stored-guide-1d0";
     public string source { get; set; } = "FMSuperScout 24 FM24 native memory reader";
     public bool gameShortlistFound { get; set; }
     public List<uint> gameShortlist { get; set; } = new();
@@ -189,6 +190,9 @@ internal sealed class Person
     public int natId { get; set; }
     public string? club { get; set; }
     public uint? clubId { get; set; }
+    public int? nationalTeamId { get; set; }
+    public int? preferredJobId { get; set; }
+    public Dictionary<string, int>? jobInterests { get; set; }
     public string? ownerClub { get; set; }
     public uint? ownerClubId { get; set; }
     public string? div { get; set; }
@@ -196,6 +200,9 @@ internal sealed class Person
     public int? ca { get; set; }
     public int? pa { get; set; }
     public long? wage { get; set; }
+    public int? playingTimeHappiness { get; set; }
+    public string? playingTimeHappinessStatus { get; set; }
+    public string? playingTimeHappinessSource { get; set; }
     public string? expires { get; set; }
     public string? pos { get; set; }
     public List<string>? posArr { get; set; }

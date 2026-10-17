@@ -1,25 +1,47 @@
 // ================= BEST XI AND TACTICS =================
+const xiSlot = (role, line, side, t, l) => ({ role, line, side, t, l });
+const xiGoalkeeper = () => [xiSlot('gk', 'gk', 'C', 90, 50)];
+const xiBackFour = () => [
+  xiSlot('fb', 'df', 'L', 75, 15),
+  xiSlot('cd', 'df', 'CL', 75, 35),
+  xiSlot('cd', 'df', 'CR', 75, 65),
+  xiSlot('fb', 'df', 'R', 75, 85),
+];
+const xiBackFive = () => [
+  xiSlot('wb', 'df', 'L', 65, 12),
+  xiSlot('cd', 'df', 'CL', 75, 30),
+  xiSlot('cd', 'df', 'C', 75, 50),
+  xiSlot('cd', 'df', 'CR', 75, 70),
+  xiSlot('wb', 'df', 'R', 65, 88),
+];
 const XI_FORMATIONS = {
-  '4-3-3': [
+  '4-2-4 DM Wide': [
+    xiSlot('af', 'fw', 'CL', 15, 35),
+    xiSlot('af', 'fw', 'CR', 15, 65),
+    xiSlot('wing', 'am', 'L', 30, 15),
+    xiSlot('wing', 'am', 'R', 30, 85),
+    xiSlot('dm', 'dm', 'CL', 55, 35),
+    xiSlot('dm', 'dm', 'CR', 55, 65),
+    ...xiBackFour(),
+    ...xiGoalkeeper(),
+  ],
+  '4-2-3-1 DM AM Wide': [
+    xiSlot('af', 'fw', 'C', 15, 50),
+    xiSlot('wing', 'am', 'L', 30, 15),
+    xiSlot('am', 'am', 'C', 30, 50),
+    xiSlot('wing', 'am', 'R', 30, 85),
+    xiSlot('dm', 'dm', 'CL', 55, 35),
+    xiSlot('dm', 'dm', 'CR', 55, 65),
+    ...xiBackFour(),
+    ...xiGoalkeeper(),
+  ],
+  '4-3-3 DM Wide': [
     { role: 'af', line: 'fw', side: 'C', t: 15, l: 50 },
     { role: 'wing', line: 'am', side: 'L', t: 25, l: 15 },
     { role: 'wing', line: 'am', side: 'R', t: 25, l: 85 },
     { role: 'cm', line: 'cm', side: 'CL', t: 45, l: 30 },
     { role: 'cm', line: 'cm', side: 'CR', t: 45, l: 70 },
     { role: 'dm', line: 'dm', side: 'C', t: 60, l: 50 },
-    { role: 'fb', line: 'df', side: 'L', t: 75, l: 15 },
-    { role: 'cd', line: 'df', side: 'CL', t: 75, l: 35 },
-    { role: 'cd', line: 'df', side: 'CR', t: 75, l: 65 },
-    { role: 'fb', line: 'df', side: 'R', t: 75, l: 85 },
-    { role: 'gk', line: 'gk', side: 'C', t: 90, l: 50 },
-  ],
-  '4-2-3-1': [
-    { role: 'af', line: 'fw', side: 'C', t: 15, l: 50 },
-    { role: 'wing', line: 'am', side: 'L', t: 30, l: 15 },
-    { role: 'am', line: 'am', side: 'C', t: 30, l: 50 },
-    { role: 'wing', line: 'am', side: 'R', t: 30, l: 85 },
-    { role: 'dm', line: 'dm', side: 'CL', t: 55, l: 35 },
-    { role: 'dm', line: 'dm', side: 'CR', t: 55, l: 65 },
     { role: 'fb', line: 'df', side: 'L', t: 75, l: 15 },
     { role: 'cd', line: 'df', side: 'CL', t: 75, l: 35 },
     { role: 'cd', line: 'df', side: 'CR', t: 75, l: 65 },
@@ -39,72 +61,133 @@ const XI_FORMATIONS = {
     { role: 'fb', line: 'df', side: 'R', t: 75, l: 85 },
     { role: 'gk', line: 'gk', side: 'C', t: 90, l: 50 },
   ],
-  '5-3-2': [
+  '5-3-2 DM WB': [
     { role: 'af', line: 'fw', side: 'CL', t: 15, l: 35 },
     { role: 'af', line: 'fw', side: 'CR', t: 15, l: 65 },
-    { role: 'cm', line: 'cm', side: 'CL', t: 45, l: 30 },
-    { role: 'cm', line: 'cm', side: 'C', t: 45, l: 50 },
-    { role: 'cm', line: 'cm', side: 'CR', t: 45, l: 70 },
-    { role: 'wb', line: 'df', side: 'L', t: 65, l: 15 },
-    { role: 'cd', line: 'df', side: 'CL', t: 75, l: 35 },
-    { role: 'cd', line: 'df', side: 'C', t: 75, l: 50 },
-    { role: 'cd', line: 'df', side: 'CR', t: 75, l: 65 },
-    { role: 'wb', line: 'df', side: 'R', t: 65, l: 85 },
-    { role: 'gk', line: 'gk', side: 'C', t: 90, l: 50 },
+    { role: 'cm', line: 'cm', side: 'CL', t: 45, l: 35 },
+    { role: 'cm', line: 'cm', side: 'CR', t: 45, l: 65 },
+    { role: 'dm', line: 'dm', side: 'C', t: 57, l: 50 },
+    ...xiBackFive(),
+    ...xiGoalkeeper(),
+  ],
+  '5-2-3 DM Wide': [
+    xiSlot('af', 'fw', 'C', 15, 50),
+    xiSlot('wing', 'am', 'L', 25, 15),
+    xiSlot('wing', 'am', 'R', 25, 85),
+    xiSlot('dm', 'dm', 'CL', 55, 35),
+    xiSlot('dm', 'dm', 'CR', 55, 65),
+    ...xiBackFive(),
+    ...xiGoalkeeper(),
+  ],
+  '4-4-2 Diamond Narrow': [
+    xiSlot('af', 'fw', 'CL', 15, 35),
+    xiSlot('af', 'fw', 'CR', 15, 65),
+    xiSlot('am', 'am', 'C', 30, 50),
+    xiSlot('cm', 'cm', 'CL', 45, 35),
+    xiSlot('cm', 'cm', 'CR', 45, 65),
+    xiSlot('dm', 'dm', 'C', 58, 50),
+    ...xiBackFour(),
+    ...xiGoalkeeper(),
+  ],
+  '5-2-2-1 DM AM': [
+    xiSlot('af', 'fw', 'C', 15, 50),
+    xiSlot('am', 'am', 'CL', 30, 38),
+    xiSlot('am', 'am', 'CR', 30, 62),
+    xiSlot('dm', 'dm', 'CL', 55, 35),
+    xiSlot('dm', 'dm', 'CR', 55, 65),
+    ...xiBackFive(),
+    ...xiGoalkeeper(),
+  ],
+  '5-2-1-2 DM AM': [
+    xiSlot('af', 'fw', 'CL', 15, 35),
+    xiSlot('af', 'fw', 'CR', 15, 65),
+    xiSlot('am', 'am', 'C', 30, 50),
+    xiSlot('dm', 'dm', 'CL', 55, 35),
+    xiSlot('dm', 'dm', 'CR', 55, 65),
+    ...xiBackFive(),
+    ...xiGoalkeeper(),
+  ],
+  '5-3-2': [
+    xiSlot('af', 'fw', 'CL', 15, 35),
+    xiSlot('af', 'fw', 'CR', 15, 65),
+    xiSlot('cm', 'cm', 'CL', 45, 30),
+    xiSlot('cm', 'cm', 'C', 45, 50),
+    xiSlot('cm', 'cm', 'CR', 45, 70),
+    ...xiBackFive(),
+    ...xiGoalkeeper(),
   ],
   '4-2-4': [
-    { role: 'af', line: 'fw', side: 'CL', t: 15, l: 35 },
-    { role: 'af', line: 'fw', side: 'CR', t: 15, l: 65 },
-    { role: 'wing', line: 'am', side: 'L', t: 30, l: 15 },
-    { role: 'wing', line: 'am', side: 'R', t: 30, l: 85 },
-    { role: 'cm', line: 'cm', side: 'CL', t: 50, l: 35 },
-    { role: 'cm', line: 'cm', side: 'CR', t: 50, l: 65 },
-    { role: 'fb', line: 'df', side: 'L', t: 75, l: 15 },
-    { role: 'cd', line: 'df', side: 'CL', t: 75, l: 35 },
-    { role: 'cd', line: 'df', side: 'CR', t: 75, l: 65 },
-    { role: 'fb', line: 'df', side: 'R', t: 75, l: 85 },
-    { role: 'gk', line: 'gk', side: 'C', t: 90, l: 50 },
+    xiSlot('af', 'fw', 'CL', 15, 35),
+    xiSlot('af', 'fw', 'CR', 15, 65),
+    xiSlot('wing', 'am', 'L', 30, 15),
+    xiSlot('wing', 'am', 'R', 30, 85),
+    xiSlot('cm', 'cm', 'CL', 50, 35),
+    xiSlot('cm', 'cm', 'CR', 50, 65),
+    ...xiBackFour(),
+    ...xiGoalkeeper(),
   ],
   '5-4-1': [
-    { role: 'af', line: 'fw', side: 'C', t: 15, l: 50 },
-    { role: 'wing', line: 'cm', side: 'L', t: 45, l: 15 },
-    { role: 'cm', line: 'cm', side: 'CL', t: 45, l: 35 },
-    { role: 'cm', line: 'cm', side: 'CR', t: 45, l: 65 },
-    { role: 'wing', line: 'cm', side: 'R', t: 45, l: 85 },
-    { role: 'wb', line: 'df', side: 'L', t: 65, l: 15 },
-    { role: 'cd', line: 'df', side: 'CL', t: 75, l: 35 },
-    { role: 'cd', line: 'df', side: 'C', t: 75, l: 50 },
-    { role: 'cd', line: 'df', side: 'CR', t: 75, l: 65 },
-    { role: 'wb', line: 'df', side: 'R', t: 65, l: 85 },
-    { role: 'gk', line: 'gk', side: 'C', t: 90, l: 50 },
+    xiSlot('af', 'fw', 'C', 15, 50),
+    xiSlot('wing', 'cm', 'L', 45, 15),
+    xiSlot('cm', 'cm', 'CL', 45, 35),
+    xiSlot('cm', 'cm', 'CR', 45, 65),
+    xiSlot('wing', 'cm', 'R', 45, 85),
+    ...xiBackFive(),
+    ...xiGoalkeeper(),
   ],
   '4-1-4-1': [
-    { role: 'af', line: 'fw', side: 'C', t: 15, l: 50 },
-    { role: 'wing', line: 'cm', side: 'L', t: 40, l: 15 },
-    { role: 'cm', line: 'cm', side: 'CL', t: 40, l: 35 },
-    { role: 'cm', line: 'cm', side: 'CR', t: 40, l: 65 },
-    { role: 'wing', line: 'cm', side: 'R', t: 40, l: 85 },
-    { role: 'dm', line: 'dm', side: 'C', t: 55, l: 50 },
-    { role: 'fb', line: 'df', side: 'L', t: 75, l: 15 },
-    { role: 'cd', line: 'df', side: 'CL', t: 75, l: 35 },
-    { role: 'cd', line: 'df', side: 'CR', t: 75, l: 65 },
-    { role: 'fb', line: 'df', side: 'R', t: 75, l: 85 },
-    { role: 'gk', line: 'gk', side: 'C', t: 90, l: 50 },
+    xiSlot('af', 'fw', 'C', 15, 50),
+    xiSlot('wing', 'cm', 'L', 40, 15),
+    xiSlot('cm', 'cm', 'CL', 40, 35),
+    xiSlot('cm', 'cm', 'CR', 40, 65),
+    xiSlot('wing', 'cm', 'R', 40, 85),
+    xiSlot('dm', 'dm', 'C', 55, 50),
+    ...xiBackFour(),
+    ...xiGoalkeeper(),
   ],
   '3-4-3': [
-    { role: 'af', line: 'fw', side: 'C', t: 15, l: 50 },
-    { role: 'wing', line: 'am', side: 'L', t: 25, l: 20 },
-    { role: 'wing', line: 'am', side: 'R', t: 25, l: 80 },
-    { role: 'cm', line: 'cm', side: 'CL', t: 45, l: 35 },
-    { role: 'cm', line: 'cm', side: 'CR', t: 45, l: 65 },
-    { role: 'wb', line: 'dm', side: 'L', t: 55, l: 15 },
-    { role: 'wb', line: 'dm', side: 'R', t: 55, l: 85 },
-    { role: 'cd', line: 'df', side: 'CL', t: 75, l: 30 },
-    { role: 'cd', line: 'df', side: 'C', t: 75, l: 50 },
-    { role: 'cd', line: 'df', side: 'CR', t: 75, l: 70 },
-    { role: 'gk', line: 'gk', side: 'C', t: 90, l: 50 },
+    xiSlot('af', 'fw', 'C', 15, 50),
+    xiSlot('wing', 'am', 'L', 25, 20),
+    xiSlot('wing', 'am', 'R', 25, 80),
+    xiSlot('cm', 'cm', 'CL', 45, 35),
+    xiSlot('cm', 'cm', 'CR', 45, 65),
+    xiSlot('wb', 'dm', 'L', 55, 15),
+    xiSlot('wb', 'dm', 'R', 55, 85),
+    xiSlot('cd', 'df', 'CL', 75, 30),
+    xiSlot('cd', 'df', 'C', 75, 50),
+    xiSlot('cd', 'df', 'CR', 75, 70),
+    ...xiGoalkeeper(),
   ],
 };
+const XI_FM_PRESET_KEYS = [
+  '4-2-4 DM Wide',
+  '4-2-3-1 DM AM Wide',
+  '4-3-3 DM Wide',
+  '4-4-2',
+  '5-2-3 DM Wide',
+  '5-3-2 DM WB',
+  '4-4-2 Diamond Narrow',
+  '5-2-2-1 DM AM',
+  '5-2-1-2 DM AM',
+];
+const XI_SELECTABLE_PRESET_KEYS = [
+  ...XI_FM_PRESET_KEYS,
+  '5-3-2',
+  '4-2-4',
+  '5-4-1',
+  '4-1-4-1',
+  '3-4-3',
+];
+const XI_FORMATION_ALIASES = {
+  '4-3-3': '4-3-3 DM Wide',
+  '4-2-3-1': '4-2-3-1 DM AM Wide',
+};
+if (XI_FORMATION_ALIASES[state.bestXiFormation]) {
+  state.bestXiFormation = XI_FORMATION_ALIASES[state.bestXiFormation];
+  try {
+    localStorage.setItem('fmss_xi_formation', state.bestXiFormation);
+  } catch {}
+}
 
 // Maps a Best XI slot to a meta group name, so we use position-specific weights when scoring.
 // wing/if disambiguation: cm-line = wide mid (WM), am-line = attacking wing (AM).
@@ -232,7 +315,7 @@ function bestMetaForSlot(
   const allowedPositions = slotPositions || slotFmPositions(slot);
   let best = null;
   for (const pos of allowedPositions) {
-    const entry = scores.get(pos);
+    const entry = (scores || new Map(metaScoresByPosition(p, p.attrs).map((entry) => [entry.pos, entry]))).get(pos);
     if (!entry) continue;
     if (
       hasProfData
@@ -245,12 +328,32 @@ function bestMetaForSlot(
   return best && Number.isFinite(best.effectiveMeta) ? best : null;
 }
 
-function indexPositionScores(squad) {
+function indexPositionScores(squad, scoreMode = 'meta', currentPositionScores = null) {
   const byPlayer = new Map();
   for (const p of squad) {
     const byPosition = new Map();
-    if (p.attrs)
-      for (const entry of metaScoresByPosition(p, p.attrs)) byPosition.set(entry.pos, entry);
+    if (p.attrs) {
+      const currentScores = currentPositionScores?.get(p)
+        ? [...currentPositionScores.get(p).values()]
+        : metaScoresByPosition(p, p.attrs);
+      const projectedAttrs = scoreMode === 'metapa' ? projectAttrs(p) : null;
+      const projectedScores = projectedAttrs ? metaScoresByPosition(p, projectedAttrs) : [];
+      const projectedByPosition = new Map(projectedScores.map((entry) => [entry.pos, entry]));
+      for (const entry of currentScores) {
+        if (scoreMode === 'happiness') {
+          const happiness = xiPlayingTimeScore(p);
+          if (happiness != null) byPosition.set(entry.pos, { ...entry, effectiveMeta: -happiness });
+          continue;
+        }
+        const projected = projectedByPosition.get(entry.pos);
+        byPosition.set(
+          entry.pos,
+          scoreMode === 'metapa' && projected && projected.effectiveMeta > entry.effectiveMeta
+            ? { ...entry, effectiveMeta: projected.effectiveMeta }
+            : entry,
+        );
+      }
+    }
     byPlayer.set(p, byPosition);
   }
   return byPlayer;
@@ -403,22 +506,18 @@ function findOptimalLineup(squad, formation, positionScores = null) {
 
   return { lineup, score: lineup.reduce((sum, slot) => sum + slot.score, 0) };
 }
-function autoDetectBestFormation(squad) {
+function autoDetectBestFormation(squad, scoreMode = 'meta') {
   let bestFormationKey = null,
     bestResult = null,
     highestFilledCount = -1,
     highestAvgScore = -Infinity;
-  const formationKeys = Object.keys(XI_FORMATIONS).filter(
-    (k) => k !== 'custom' && k !== 'custom_active',
-  );
-
-  const positionScores = indexPositionScores(squad);
-  formationKeys.forEach((fKey) => {
+  const positionScores = indexPositionScores(squad, scoreMode);
+  XI_SELECTABLE_PRESET_KEYS.forEach((fKey) => {
     const formation = XI_FORMATIONS[fKey];
     const res = findOptimalLineup(squad, formation, positionScores);
     if (res && res.lineup) {
       const filledCount = res.lineup.filter((slot) => slot.player).length;
-      const avg = res.score / 11;
+      const avg = xiAverageScore(res) ?? -Infinity;
       if (
         filledCount > highestFilledCount ||
         (filledCount === highestFilledCount && avg > highestAvgScore)
@@ -445,7 +544,7 @@ function triggerBestFormationAuto() {
       xiTeamFilterMatches(p) &&
       !state.xiIgnored.has(p.id),
   );
-  const best = autoDetectBestFormation(squad);
+  const best = autoDetectBestFormation(squad, 'meta');
   if (best && best.key) {
     state.bestXiFormation = best.key;
     try {
@@ -541,7 +640,7 @@ function handleXiProfThresholdChange() {
   renderBestXI();
 }
 
-function renderXiPitch(lineup, title) {
+function renderXiPitch(lineup, title, { interactive = true, happiness = false } = {}) {
   const slots = lineup || [];
   let html = `<div class="xi-pitch">
     <div class="xi-pitch-title">${escHtml(title)}</div>
@@ -550,15 +649,15 @@ function renderXiPitch(lineup, title) {
 
   slots.forEach((slot) => {
     const player = slot.player;
-    const score = player ? fmtMeta(slot.score, slot.group) : '&#8211;';
+    const score = player ? happiness ? escHtml(xiPlayingTimeText(player)) : fmtMeta(slot.score, slot.group) : '&#8211;';
     const name = player ? escHtml(player.name) : escHtml(text('bestxi_vacantPost'));
-    const cls = player ? metaClass(slot.score, slot.group) : '';
+    const cls = player ? happiness ? xiPlayingTimeClass(player) : metaClass(slot.score, slot.group) : '';
     const side =
       slot.l < 30 ? ` ${text('bestxi_left')}` : slot.l > 70 ? ` ${text('bestxi_right')}` : '';
-    const nameAction = player
+    const nameAction = player && interactive
       ? `onclick="showDetail(state.players.find(p=>p.id===${player.id}))"`
       : '';
-    const ignore = player
+    const ignore = player && interactive
       ? `<button type="button" class="xi-ignore" onclick="event.stopPropagation();xiIgnorePlayer(${player.id})" aria-label="${escHtml(text('bestxi_ignore'))}" title="${escHtml(text('bestxi_ignore'))}">&#215;</button>`
       : '';
     html += `<div class="xi-player-slot ${!player ? 'xi-player-slot--vacant' : ''}" style="top:${slot.t}%;left:${slot.l}%">
@@ -582,41 +681,37 @@ function xiPlayerPositionsAtThreshold(player) {
   ).map((pos) => ({
     pos,
     proficiency: hasProfData ? Number(proficiency[pos]) : null,
-    score: vsScoreForPosition(player, pos),
+    score: null,
     group: POS_TO_META_GROUP[pos],
   }));
 }
 
-function renderXiBestCard(lineup, averageScore) {
-  const rows = (lineup || [])
-    .filter((slot) => slot.player)
-    .slice()
-    .sort((a, b) => (POS_RANK[a.pos] ?? 99) - (POS_RANK[b.pos] ?? 99) || (b.l || 0) - (a.l || 0));
-  const score =
-    averageScore == null
-      ? '<span class="dim">&#8211;</span>'
-      : fmtMeta(averageScore);
-  const list = rows
-    .map(
-      (slot) => `<div class="xi-best-row">
-    <span class="xi-best-position">${escHtml(slot.pos || '–')}</span>
-    <span class="xi-best-name" title="${escHtml(slot.player.name)}" onclick="showDetail(state.players.find(p=>p.id===${slot.player.id}))">${escHtml(slot.player.name)}</span>
-    <span class="v ${metaClass(slot.score, slot.group)}">${fmtMeta(slot.score, slot.group)}</span>
-    <button type="button" class="xi-remaining-ignore" aria-label="${escHtml(text('bestxi_ignore'))}" title="${escHtml(text('bestxi_ignore'))}" onclick="xiIgnorePlayer(${slot.player.id})">&#215;</button>
-  </div>`,
-    )
-    .join('');
-  return `<section class="xi-panel-card xi-best-card">
-    <div class="xi-remaining-title"><div><strong>${escHtml(text('bestxi_playersTitle'))}</strong><small>${escHtml(text('bestxi_avgScore'))} <b>${score}</b></small></div><span>${rows.length}</span></div>
-    <div class="xi-best-columns"><span>${escHtml(text('position'))}</span><span>${escHtml(text('c_name'))}</span><span>${escHtml(text('c_meta'))}</span><span></span></div>
-    ${list ? `<div class="xi-remaining-list">${list}</div>` : `<div class="xi-remaining-empty">${escHtml(text('bestxi_noPlayer'))}</div>`}
-  </section>`;
+function renderXiModeCards(mode, result, positionScores, squad) {
+  const isPaMeta = mode === 'metapa';
+  const happiness = mode === 'happiness';
+  const label = happiness ? 'Unhappy playing time' : text(isPaMeta ? 'c_metapa' : 'c_meta');
+  const averageLabel = text(isPaMeta ? 'bestxi_avgPaScore' : 'bestxi_avgScore');
+  const average = xiAverageScore(result);
+  const averageDisplay = average == null
+    ? '<span class="dim">&#8211;</span>'
+    : `<span>${fmtMeta(average)}</span>`;
+  const titularIds = new Set((result?.lineup || []).map((slot) => slot.player?.id).filter(Boolean));
+  const remainingPlayers = squad.filter((player) => !titularIds.has(player.id));
+
+  return `<section class="xi-panel-card xi-visual-card">
+    <div class="xi-card-title">${escHtml(label)}</div>
+    ${renderXiPitch(result?.lineup, happiness ? 'Most unhappy by position' : text('tabBestxi'), { happiness })}
+    ${happiness ? '' : `<div class="xi-average"><span>${escHtml(averageLabel)}</span>${averageDisplay}</div>`}
+  </section>${renderXiRemainingCard(remainingPlayers, positionScores, mode)}`;
 }
 
-function renderXiRemainingCard(players) {
+function renderXiRemainingCard(players, positionScores, scoreMode) {
+  const happiness = scoreMode === 'happiness';
+  const scoreLabel = happiness ? 'Playing time happiness' : text(scoreMode === 'metapa' ? 'c_metapa' : 'c_meta');
   const groups = new Map(POS_ORDER.map((pos) => [pos, []]));
   for (const player of players) {
     for (const position of xiPlayerPositionsAtThreshold(player)) {
+      position.score = positionScores.get(player)?.get(position.pos)?.effectiveMeta ?? null;
       if (groups.has(position.pos)) groups.get(position.pos).push({ player, ...position });
     }
   }
@@ -640,7 +735,7 @@ function renderXiRemainingCard(players) {
         ({ player, proficiency, score, group }) => `<div class="xi-remaining-row">
       <span class="xi-remaining-name" title="${escHtml(player.name)}" onclick="showDetail(state.players.find(p=>p.id===${player.id}))">${escHtml(player.name)}</span>
       <span class="xi-remaining-prof">${proficiency == null ? '–' : proficiency}</span>
-      <span class="v ${score == null ? 'dim' : metaClass(score, group)}">${score == null ? '–' : fmtMeta(score, group)}</span>
+      <span class="v ${happiness ? xiPlayingTimeClass(player) : score == null ? 'dim' : metaClass(score, group)}">${happiness ? escHtml(xiPlayingTimeText(player)) : score == null ? '&#8211;' : fmtMeta(score, group)}</span>
       <button type="button" class="xi-remaining-ignore" aria-label="${escHtml(text('bestxi_ignore'))}" title="${escHtml(text('bestxi_ignore'))}" onclick="xiIgnorePlayer(${player.id})">&#215;</button>
     </div>`,
       )
@@ -649,8 +744,8 @@ function renderXiRemainingCard(players) {
     )
     .join('');
   return `<section class="xi-panel-card xi-remaining-card">
-    <div class="xi-remaining-title"><strong>${escHtml(text('bestxi_remainingTitle'))}</strong><span>${visiblePlayerIds.size}</span></div>
-    <div class="xi-remaining-columns"><span>${escHtml(text('c_name'))}</span><span>${escHtml(text('bestxi_minProf'))}</span><span>${escHtml(text('c_meta'))}</span><span></span></div>
+    <div class="xi-remaining-title"><strong>${escHtml(text('bestxi_remainingTitle'))} &middot; ${escHtml(scoreLabel)}</strong><span>${visiblePlayerIds.size}</span></div>
+    <div class="xi-remaining-columns"><span>${escHtml(text('c_name'))}</span><span>${escHtml(text('bestxi_minProf'))}</span><span>${escHtml(scoreLabel)}</span><span></span></div>
     ${list ? `<div class="xi-remaining-list">${list}</div>` : `<div class="xi-remaining-empty">${escHtml(text('bestxi_remainingEmpty'))}</div>`}
   </section>`;
 }
@@ -677,8 +772,7 @@ function renderBestXI() {
     <div class="xi-controls">
       ${xiProfFilterHtml()}
       <select id="xi-formation" onchange="handleFormationChange()" style="padding: 5px 10px; background: #1e293b; color: #fff; border: 1px solid #334155; border-radius: 5px; font-weight: bold; cursor: pointer;">
-        ${Object.keys(XI_FORMATIONS)
-          .filter((f) => f !== 'custom_active')
+        ${XI_SELECTABLE_PRESET_KEYS
           .map(
             (f) =>
               `<option value="${f}" ${state.bestXiFormation === f ? 'selected' : ''}>${f}</option>`,
@@ -710,14 +804,13 @@ function renderBestXI() {
       : XI_FORMATIONS[state.bestXiFormation];
   if (!formation) return;
 
-  const result = findOptimalLineup(squad, formation);
-  const titularIds = new Set((result?.lineup || []).map((slot) => slot.player?.id).filter(Boolean));
-  const remainingPlayers = squad.filter((player) => !titularIds.has(player.id));
-
-  const layoutHtml = `<div class="xi-layout">
-    ${renderXiPitch(result?.lineup, text('tabBestxi'))}
-    ${renderXiBestCard(result?.lineup, xiAverageScore(result))}
-    ${renderXiRemainingCard(remainingPlayers)}
+  const metaScores = indexPositionScores(squad, 'meta');
+  const paMetaScores = indexPositionScores(squad, 'metapa', metaScores);
+  const metaResult = findOptimalLineup(squad, formation, metaScores);
+  const paMetaResult = findOptimalLineup(squad, formation, paMetaScores);
+  const layoutHtml = `<div class="xi-comparison">
+    ${renderXiModeCards('meta', metaResult, metaScores, squad)}
+    ${renderXiModeCards('metapa', paMetaResult, paMetaScores, squad)}
   </div>`;
 
   // Unavailable panel — shown when any player is ignored
@@ -747,7 +840,7 @@ if (state.bestXiFormation === 'custom_active') {
   if (customSelectedSlots.length === 11) {
     XI_FORMATIONS['custom_active'] = customSelectedSlots;
   } else {
-    state.bestXiFormation = '4-3-3'; // Fallback for incomplete saved data.
+    state.bestXiFormation = '4-3-3 DM Wide'; // Fallback for incomplete saved data.
   }
 }
 const INTERACTIVE_MAP = [
@@ -786,7 +879,7 @@ function handleFormationChange() {
       localStorage.setItem('fmss_xi_formation', 'custom');
     } catch {}
     if (customSelectedSlots.length === 0) {
-      customSelectedSlots = JSON.parse(JSON.stringify(XI_FORMATIONS['4-3-3']));
+      customSelectedSlots = JSON.parse(JSON.stringify(XI_FORMATIONS['4-3-3 DM Wide']));
     }
     renderInteractiveMap();
   } else {
@@ -810,7 +903,7 @@ function renderInteractiveMap() {
       <div class="xi-controls">
           ${xiProfFilterHtml()}
           <select id="xi-formation" onchange="handleFormationChange()" style="padding: 5px 10px; background: #1e293b; color: #fff; border: 1px solid #334155; border-radius: 5px; font-weight: bold; cursor: pointer;">
-              ${Object.keys(XI_FORMATIONS)
+              ${XI_SELECTABLE_PRESET_KEYS
                 .map((f) => `<option value="${f}">${f}</option>`)
                 .join('')}
               <option value="custom" selected>${escHtml(text('bestxi_customOpt'))}</option>
@@ -884,6 +977,156 @@ let clubListRows = [],
   clubListSortDir = 1;
 let clubListScrollQueued = false;
 const CLUB_LIST_ROW_H = 34;
+let clubBestXiResults = new Map();
+let clubBestXiContext = null;
+let activeClubDetail = null;
+let clubBestXiRun = 0;
+function clubKey(club) {
+  const id = Number(club?.id) || 0;
+  return id > 0 ? `id:${id}` : `name:${normStr(club?.name || '')}`;
+}
+function clubXiContextIsCurrent() {
+  const teamGroups = [...xiSelectedTeamGroups()].sort().join(',');
+  return !!clubBestXiContext &&
+    clubBestXiContext.players === state.players &&
+    clubBestXiContext.clubs === state.clubs &&
+    clubBestXiContext.meta === META_PRESET &&
+    clubBestXiContext.profThreshold === state.xiProfThreshold &&
+    clubBestXiContext.teamGroups === teamGroups;
+}
+function syncClubXiContext() {
+  if (clubXiContextIsCurrent()) return false;
+  clubBestXiResults.clear();
+  clubBestXiContext = {
+    players: state.players,
+    clubs: state.clubs,
+    meta: META_PRESET,
+    profThreshold: state.xiProfThreshold,
+    teamGroups: [...xiSelectedTeamGroups()].sort().join(','),
+  };
+  const status = $('club-xi-status');
+  if (status) status.textContent = text('clubXiNeedsCalculate');
+  if (activeClubDetail && !$('detail').classList.contains('hidden'))
+    renderClubBestXiDetail(activeClubDetail);
+  return true;
+}
+function clubXiResult(club) {
+  return clubBestXiResults.get(clubKey(club)) || null;
+}
+function calculateClubBestXi(club, playersById, playersByName) {
+  const id = Number(club?.id) || 0;
+  const players = id > 0 && playersById.has(id)
+    ? playersById.get(id)
+    : playersByName.get(normStr(club?.name || '')) || [];
+  const best = autoDetectBestFormation(players, 'meta');
+  if (!best?.key || !best.result) return null;
+  return {
+    formation: best.key,
+    lineup: best.result.lineup,
+    average: xiAverageScore(best.result),
+    filled: best.result.lineup.filter((slot) => slot.player).length,
+  };
+}
+function clubXiPlayersIndex() {
+  const selectedGroups = xiSelectedTeamGroups();
+  const byId = new Map();
+  const byName = new Map();
+  const add = (map, key, player) => {
+    if (!key) return;
+    let squad = map.get(key);
+    if (!squad) map.set(key, (squad = []));
+    squad.push(player);
+  };
+  for (const player of state.players || []) {
+    if (!selectedGroups.has(teamGroup(player.teamType))) continue;
+    const id = Number(player.clubId) || 0;
+    if (id > 0) add(byId, id, player);
+    const name = normStr(player.club || '');
+    if (name) add(byName, name, player);
+  }
+  return { byId, byName };
+}
+function calculateDisplayedClubBestXi() {
+  const button = $('club-xi-calculate');
+  if (!button || button.disabled) return;
+  syncClubXiContext();
+  const clubs = clubListRows.slice();
+  if (!clubs.length) {
+    const status = $('club-xi-status');
+    if (status) status.textContent = text('clubXiNoClubs');
+    return;
+  }
+
+  const run = ++clubBestXiRun;
+  const status = $('club-xi-status');
+  const { byId, byName } = clubXiPlayersIndex();
+  let index = 0;
+  button.disabled = true;
+  const processBatch = () => {
+    if (run !== clubBestXiRun) return;
+    if (!clubXiContextIsCurrent()) {
+      syncClubXiContext();
+      button.disabled = false;
+      if (status) status.textContent = text('clubXiResultsCleared');
+      renderClubListVisible();
+      return;
+    }
+    const end = Math.min(index + 12, clubs.length);
+    let activeClubUpdated = false;
+    for (; index < end; index++) {
+      const club = clubs[index];
+      const result = calculateClubBestXi(club, byId, byName);
+      if (result) {
+        clubBestXiResults.set(clubKey(club), result);
+        activeClubUpdated ||= activeClubDetail === club;
+      }
+    }
+    if (status)
+      status.textContent = tf('clubXiCalculating', {
+        done: index.toLocaleString(FORMAT_LOCALE),
+        total: clubs.length.toLocaleString(FORMAT_LOCALE),
+      });
+    renderClubListVisible();
+    if (activeClubUpdated)
+      renderClubBestXiDetail(activeClubDetail);
+    if (index < clubs.length) {
+      setTimeout(processBatch, 0);
+      return;
+    }
+    sortClubListRows();
+    renderClubListVisible();
+    button.disabled = false;
+    if (status) status.textContent = tf('clubXiCalculated', { n: clubs.length.toLocaleString(FORMAT_LOCALE) });
+  };
+  processBatch();
+}
+function renderClubBestXiDetail(club) {
+  const result = clubXiResult(club);
+  const formationName = result?.formation || text('clubXiNotCalculated');
+  const average = result?.average == null ? '–' : fmtMeta(result.average);
+  const lineup = result
+    ? `<div class="club-xi-mini">${renderXiPitch(result.lineup, club.name, { interactive: false })}</div>
+       <div class="club-xi-player-count">${tf('clubXiPlayers', { n: result.filled })}</div>`
+    : `<p class="club-xi-empty">${escHtml(text('clubXiRunForClub'))}</p>`;
+  $('detail-body').innerHTML = `<section class="club-xi-detail">
+    <div class="club-xi-kicker">${escHtml(text('clubXiTitle'))}</div>
+    <h2>${escHtml(club.name || '')}</h2>
+    <div class="sub">${escHtml([club.div || club.league, club.nation].filter(Boolean).join(' · '))}</div>
+    <div class="club-xi-summary"><div><span>${escHtml(text('clubXiFormation'))}</span><b>${escHtml(formationName)}</b></div><div><span>${escHtml(text('clubXiAverage'))}</span><b>${escHtml(average)}</b></div></div>
+    ${lineup}
+  </section>`;
+}
+function showClubBestXiDetail(club) {
+  if (!club) return;
+  if (state.selected) metaPositionScoresCache.delete(state.selected);
+  state.selected = null;
+  activeClubDetail = club;
+  syncClubXiContext();
+  $('detail').classList.remove('popup', 'hidden');
+  $('detail-backdrop').classList.add('hidden');
+  renderClubBestXiDetail(club);
+}
+window.showClubBestXiDetail = showClubBestXiDetail;
 const CLUB_LIST_COLS = [
   { key: 'name', label: 'clubColName', get: (c) => c.name || '' },
   { key: 'nation', label: 'clubColNation', get: (c) => c.nation || '' },
@@ -897,6 +1140,12 @@ const CLUB_LIST_COLS = [
     label: 'clubColReputation',
     num: true,
     get: (c) => c.reputation ?? c.rep,
+  },
+  {
+    key: 'bestXi',
+    label: 'clubColBestXi',
+    num: true,
+    get: (c) => clubXiResult(c)?.average,
   },
   {
     key: 'balance',
@@ -1264,6 +1513,7 @@ function clubFilterDisplayNumber(key, club) {
 }
 function applyClubListFilters() {
   if (!$('club-filter-name')) return;
+  syncClubXiContext();
   const name = foldSearchText($('club-filter-name').value.trim());
   const nation = normStr($('club-filter-nation').value.trim());
   const league = normStr($('club-filter-league').value.trim());
@@ -1308,6 +1558,7 @@ function renderClubListVisible() {
   const wrap = $('club-list-table-wrap'),
     body = $('club-list-body');
   if (!wrap || !body) return;
+  syncClubXiContext();
   const total = clubListRows.length;
   const first = Math.max(0, Math.floor(wrap.scrollTop / CLUB_LIST_ROW_H) - 8);
   const count = Math.ceil(wrap.clientHeight / CLUB_LIST_ROW_H) + 16;
@@ -1327,21 +1578,55 @@ function renderClubListVisible() {
       const cells = cols
         .map((col) => {
           const value = clubListValue(col, club);
+          if (col.key === 'name')
+            return `<td><button type="button" class="club-list-name" aria-label="${escHtml(tf('clubXiOpen', { name: club.name || '' }))}">${escHtml(value || '')}</button></td>`;
           let display = '–';
           if (value != null) {
             if (col.money)
               display = typeof value === 'number' ? fmtClubMoney(value, col) : String(value);
+            else if (col.key === 'bestXi' && typeof value === 'number')
+              display = fmtMeta(value);
             else if (col.num && typeof value === 'number')
               display = value.toLocaleString(FORMAT_LOCALE);
             else display = String(value);
           }
-          const missingTip = value == null ? ` title="${escHtml(text('clubDataMissing'))}"` : '';
-          return `<td class="${col.num || col.money || col.wage ? 'num' : ''} ${value == null ? 'dim' : ''}"${missingTip}>${escHtml(display)}</td>`;
+          const bestXi = col.key === 'bestXi' ? clubXiResult(club) : null;
+          const tip = col.key === 'bestXi'
+            ? bestXi?.average == null
+              ? text(bestXi ? 'clubXiNoScore' : 'clubXiNeedsCalculate')
+              : bestXi.formation
+            : value == null
+              ? text('clubDataMissing')
+              : '';
+          const title = tip ? ` title="${escHtml(tip)}"` : '';
+          return `<td class="${col.num || col.money || col.wage ? 'num' : ''} ${value == null ? 'dim' : ''}"${title}>${escHtml(display)}</td>`;
         })
         .join('');
-      return `<tr class="${(first + i) % 2 ? 'even' : ''}" style="height:${CLUB_LIST_ROW_H}px">${cells}</tr>`;
+      return `<tr class="club-list-row ${(first + i) % 2 ? 'even' : ''}" data-club-key="${escHtml(clubKey(club))}" style="height:${CLUB_LIST_ROW_H}px">${cells}</tr>`;
     })
     .join('');
   body.innerHTML =
     spacer(first * CLUB_LIST_ROW_H) + rows + spacer((total - last) * CLUB_LIST_ROW_H);
+}
+
+$('club-xi-calculate')?.addEventListener('click', calculateDisplayedClubBestXi);
+if ($('club-xi-calculate')) $('club-xi-calculate').textContent = text('clubXiCalculate');
+$('club-list-body')?.addEventListener('click', (event) => {
+  const row = event.target.closest('tr[data-club-key]');
+  if (!row) return;
+  const club = (state.clubs || []).find((item) => clubKey(item) === row.dataset.clubKey);
+  if (club) showClubBestXiDetail(club);
+});
+
+function xiPlayingTimeScore(player) {
+  const value = player.playingTimeHappiness;
+  return typeof value === 'number' && Number.isFinite(value) && value >= -100 && value <= 100 ? value : null;
+}
+function xiPlayingTimeText(player) {
+  const value = xiPlayingTimeScore(player);
+  return value == null ? 'Unknown' : `${player.playingTimeHappinessStatus || 'Score'} (${value})`;
+}
+function xiPlayingTimeClass(player) {
+  const value = xiPlayingTimeScore(player);
+  return value == null ? 'dim' : value < 0 ? 'xi-happiness-low' : 'dim';
 }

@@ -93,37 +93,6 @@ test('projectAttrs: physical growth slows with age while mental growth continues
   assert.ok(old.Determination >= base.attrs.Determination, 'Mental attributes can still grow with age');
 });
 
-// ---------- estValue ----------
-test('estValue: preserves a real in-game value without estimating', () => {
-  const ev = M.estValue(player({ value: 8_000_000 }));
-  assert.equal(ev.v, 8_000_000);
-  assert.equal(ev.est, false);
-});
-
-test('estValue: estimates a non-negative value when the dump has none', () => {
-  const ev = M.estValue(player({ value: 0, worldRep: 4000 }));
-  assert.equal(ev.est, true);
-  assert.ok(ev.v == null || ev.v >= 0);
-  // Higher reputation should result in a higher estimate.
-  const lo = M.estValue(player({ value: 0, worldRep: 1000 }));
-  const hi = M.estValue(player({ value: 0, worldRep: 7000 }));
-  assert.ok(hi.v >= lo.v, 'Higher reputation should produce a higher estimate');
-});
-
-// ---------- interestEstimate ----------
-test('interestEstimate: unknown age is not treated as a minor', () => {
-  const unknown = M.interestEstimate(player({ age: 0, birthYear: 0 }));
-  assert.ok(unknown && unknown.note !== 'minor', 'Age 0 should not receive the minor cap');
-  assert.ok(unknown.score > 6, `Unknown age should not remain capped at 6; received ${unknown.score}`);
-  const realMinor = M.interestEstimate(player({ age: 14, birthYear: 2013 }));
-  assert.equal(realMinor.note, 'minor');
-  assert.ok(realMinor.score <= 6);
-});
-
-test('interestEstimate: returns null for a player at the current club', () => {
-  assert.equal(M.interestEstimate(player({ club: 'Testclub' })), null);
-});
-
 // ---------- roleScore ----------
 test('roleScore: better attributes produce a higher role score', () => {
   const roles = M.ROLES || [];

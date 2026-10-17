@@ -6,6 +6,12 @@ plugin/bin/
 plugin/obj/
 reader/bin/
 reader/obj/
+test/reader-jobs/bin/
+test/reader-jobs/obj/
+reader/native_query/__pycache__/
+/fm24_hook.obj
+/fm24_hook.lib
+/fm24_hook.exp
 dist/
 installer/icon-256.png
 

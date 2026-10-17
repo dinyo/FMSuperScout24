@@ -60,9 +60,13 @@ internal sealed class Fm24Reader : IDisposable
     private readonly ulong _moduleBase;
     private readonly ulong _moduleEnd;
     private DateTime? _gameDate;
+    private bool? _hasPlayingTimeLayout;
+    private bool? _hasStaffJobPreferencesLayout;
+    private string? _playingTimeStatusError;
     // FM24 24.4.x staff layout (nplo): CA and PA are adjacent u16 fields.
     private const int StaffCaOffset = 0xD6;
     private const int StaffPaOffset = 0xD8;
+    private const int StaffPreferredJobOffset = 0xDA;
     private const int StaffAttrsOffset = 0x18;
 
     private static readonly (string key, int offset)[] Attrs =
@@ -241,6 +245,11 @@ internal sealed class Fm24Reader : IDisposable
             throw new InvalidOperationException($"FM24 person database bevatte geen leesbare spelers (objecten: {table.Pointers.Count:N0}, offsets: {string.Join(", ", offsets.Select(x => $"0x{x:X}"))}).");
 
         var squadStats = ApplySquadMembership(clubs, playerRowsByAddress);
+        uint happinessClubId = humanManager?.ClubId ?? 0;
+        foreach (var row in playerRowsByAddress)
+            if (happinessClubId != 0 && row.Value.clubId == happinessClubId && ReadU32(row.Key + 0x0C) == row.Value.id)
+                ReadPlayingTimeScore(row.Key, row.Value);
+        int happinessLabels = ReadPlayingTimeLabels(players, happinessClubId);
 
         DateTime date = _gameDate ?? DateTime.Now;
         foreach (var p in players.Concat(staff))
@@ -266,6 +275,7 @@ internal sealed class Fm24Reader : IDisposable
         File.WriteAllText(Path.Combine(_dataDir, "diagnostics.txt"),
             $"FMSuperScout FM24 native reader\r\nPID: {_pid}\r\nModule: 0x{_moduleBase:X}-0x{_moduleEnd:X}\r\n" +
             $"Person table: {table.Pointers.Count:N0}\r\nPlayers: {players.Count:N0}\r\nStaff: {staff.Count:N0}\r\n" +
+            $"Playing time: rawScores={players.Count(p => p.playingTimeHappiness.HasValue):N0}, nativeCalculatedLabels={happinessLabels:N0}, error={_playingTimeStatusError ?? "none"}\r\n" +
             $"Club database: {clubs.Count:N0}\r\nHuman manager: {humanManager?.Name ?? "not found"} ({humanManager?.Club ?? "no club"}, type 0x{humanManager?.PersonOffset ?? 0:X})\r\n" +
             $"Staff layout profiles [count,CA/PA,attrs>=18/23,known-job-byte]: {string.Join("; ", staffLayoutProfiles.OrderBy(x => x.Key).Select(x => $"0x{x.Key:X}=[{string.Join(",", x.Value)}]"))}\r\n" +
             $"Staff contract job IDs at +0x1C (including unmapped): {string.Join(", ", staffContractJobIds.OrderBy(x => x.Key).Select(x => $"{x.Key}:{x.Value:N0}"))}\r\n" +
@@ -892,14 +902,100 @@ internal sealed class Fm24Reader : IDisposable
         p.posProficiency = positions.ToDictionary(x => x.key, x => x.value);
         int top = positions.Count == 0 ? 0 : positions.Max(x => x.value);
         p.pos = string.Join(", ", positions.Where(x => x.value >= Math.Max(15, top - 2)).OrderByDescending(x => x.value).Select(x => x.key));
-        p.value = Money(ReadU32(pl + 0x1B0));
+        // Verified against FM24's valuation and AI pricing assembly. +0x1B0 is not money.
+        // This is the stored guide value; the native query worker obtains the UI range.
+        p.value = MarketValue(ReadU32(pl + 0x1D0));
         p.worldRep = ReadU16(pl + 0x1FE);
         p.adaptability = Attr(ReadByte(person + 0x78)); p.ambition = Attr(ReadByte(person + 0x79));
         p.loyalty = Attr(ReadByte(person + 0x7A)); p.pressure = Attr(ReadByte(person + 0x7B));
         p.professionalism = Attr(ReadByte(person + 0x7C)); p.sportsmanship = Attr(ReadByte(person + 0x7D));
         p.temperament = Attr(ReadByte(person + 0x7E)); p.controversy = Attr(ReadByte(person + 0x7F));
         ReadContract(person, p);
+
         return p;
+    }
+
+    private bool HasPlayingTimeLayout()
+    {
+        // Verified 24.4.2 score getter: movsx eax,byte ptr [r14+54h].
+        // Reject other layouts instead of interpreting an unrelated byte.
+        return _hasPlayingTimeLayout ??= ReadBytes(_moduleBase + 0x4B661D5, 5)
+            is byte[] code && code.SequenceEqual(new byte[] { 0x41, 0x0F, 0xBE, 0x46, 0x54 });
+    }
+
+    private void ReadPlayingTimeScore(ulong person, Person player)
+    {
+        if (!HasPlayingTimeLayout()) return;
+        ulong contract = ReadPtr(person + 0xC8);
+        // Prefer the current loan contract when present, as ReadContract does.
+        ulong loan = ReadPtr(ReadPtr(person + 0xD0));
+        if (loan != 0) contract = loan;
+        if (contract == 0) return;
+        byte[]? value = ReadBytes(contract + 0x54, 1);
+        if (value == null) return;
+        int raw = unchecked((sbyte)value[0]);
+        if (raw is >= -100 and <= 100) player.playingTimeHappiness = raw;
+    }
+
+    private int ReadPlayingTimeLabels(List<Person> players, uint clubId)
+    {
+        if (!HasPlayingTimeLayout() || clubId == 0) return 0;
+        var squad = players.Where(p => p.clubId == clubId).Take(512).ToDictionary(p => p.id);
+        if (squad.Count == 0) return 0;
+        try
+        {
+            // The native worker evaluates the recovered Playing Time path on
+            // FM's UI thread, with no UI scan or emulator.
+            string? executable = null, source = null;
+            for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir != null; dir = dir.Parent)
+            {
+                foreach (string relative in new[] { "FMSuperScout24.NativeQuery.exe", "bin/native-query/FMSuperScout24.NativeQuery.exe", "reader/bin/native-query/FMSuperScout24.NativeQuery.exe" })
+                {
+                    string candidate = Path.Combine(dir.FullName, relative);
+                    if (File.Exists(candidate)) { executable = candidate; break; }
+                }
+                foreach (string relative in new[] { "native_query/query.py", "reader/native_query/query.py" })
+                {
+                    string candidate = Path.Combine(dir.FullName, relative);
+                    if (File.Exists(candidate)) source = candidate;
+                }
+                if (executable != null) break;
+            }
+            if (executable == null && source == null) throw new IOException("Native happiness worker is not installed.");
+            var info = new ProcessStartInfo(executable ?? "python") {
+                UseShellExecute = false, CreateNoWindow = true,
+                RedirectStandardOutput = true, RedirectStandardError = true,
+            };
+            if (executable == null) { info.ArgumentList.Add("-X"); info.ArgumentList.Add("utf8"); info.ArgumentList.Add(source!); }
+            info.ArgumentList.Add("--happiness");
+            info.ArgumentList.Add("--pid"); info.ArgumentList.Add(_pid.ToString());
+            info.ArgumentList.Add("--ids"); info.ArgumentList.Add(string.Join(',', squad.Keys));
+            using var worker = Process.Start(info) ?? throw new IOException("Cannot start native happiness worker.");
+            var stdout = worker.StandardOutput.ReadToEndAsync();
+            var stderr = worker.StandardError.ReadToEndAsync();
+            if (!worker.WaitForExit(60000)) { worker.Kill(true); throw new IOException("Native happiness calculation timed out."); }
+            string output = stdout.GetAwaiter().GetResult();
+            _ = stderr.GetAwaiter().GetResult();
+            using var json = System.Text.Json.JsonDocument.Parse(output);
+            var root = json.RootElement;
+            if (worker.ExitCode != 0 || !root.GetProperty("ok").GetBoolean())
+                throw new IOException(root.TryGetProperty("error", out var error) ? error.GetString() : "Native happiness calculation failed.");
+            if (root.GetProperty("pid").GetInt32() != _pid) throw new IOException("FM process changed during happiness calculation.");
+            int count = 0;
+            foreach (var row in root.GetProperty("rows").EnumerateArray())
+            {
+                if (!squad.TryGetValue(row.GetProperty("id").GetUInt32(), out var player) ||
+                    !row.TryGetProperty("playingTimeHappinessStatus", out var status) || status.ValueKind != System.Text.Json.JsonValueKind.String ||
+                    !row.TryGetProperty("playingTimeHappiness", out var raw)) continue;
+                player.playingTimeHappiness = raw.GetInt32();
+                player.playingTimeHappinessStatus = status.GetString();
+                player.playingTimeHappinessSource = "native-calculation";
+                count++;
+            }
+            if (count < squad.Count) _playingTimeStatusError = $"Native status available for {count}/{squad.Count} club players; unsupported calculations remain unknown.";
+            return count;
+        }
+        catch (Exception e) { _playingTimeStatusError = e.Message; return 0; }
     }
 
     private Person? ReadStaff(ulong person, uint uid, int typeOffset)
@@ -919,6 +1015,7 @@ internal sealed class Fm24Reader : IDisposable
             if (raw is >= 1 and <= 100)
                 s.staffAttrs[key] = DirectStaffAttrs.Contains(key) && raw <= 20 ? raw : Attr((byte)raw);
         }
+        ReadStaffJobPreferences(person, staffBase, s);
         ReadContract(person, s);
         ulong contract = ReadPtr(person + 0xC8);
         if (contract != 0)
@@ -930,7 +1027,62 @@ internal sealed class Fm24Reader : IDisposable
                 s.job = JobNames.GetValueOrDefault(jobId) ?? $"Unknown ({jobId})";
             }
         }
+        if (!s.jobId.HasValue)
+        {
+            // Staff without an active contract may still retain their displayed
+            // job in the first entry of the role list at +0xD0.
+            ulong roleList = ReadPtr(person + 0xD0);
+            ulong firstRole = roleList == 0 ? 0 : ReadPtr(roleList + 0x10);
+            int jobId = firstRole == 0 ? 0 : ReadByte(firstRole + 0x1C);
+            if (JobNames.TryGetValue(jobId, out string? jobName))
+            {
+                s.jobId = jobId;
+                s.job = jobName;
+
+                // A staff role can belong to a national team even without a club
+                // contract. Preserve its country ID separately from clubId.
+                ulong employerTeam = firstRole == 0 ? 0 : ReadPtr(firstRole + 0x10);
+                if (employerTeam != 0)
+                {
+                    var employer = new Person();
+                    ReadTeam(employerTeam, employer);
+                    if (string.IsNullOrWhiteSpace(employer.club) && employer.clubId is > 0 and <= int.MaxValue)
+                        s.nationalTeamId = checked((int)employer.clubId.Value);
+                }
+            }
+        }
         return s;
+    }
+
+    private void ReadStaffJobPreferences(ulong person, ulong staffBase, Person staff)
+    {
+        // The person and staff facets have different virtual-base offsets. Resolve the
+        // staff facet via the vbtable rather than applying nplo offsets to every subtype.
+        bool supported = _hasStaffJobPreferencesLayout ??=
+            ReadBytes(_moduleBase + 0x21338D0, 5) is byte[] getter &&
+            getter.SequenceEqual(new byte[] { 0x48, 0x8B, 0x41, 0x88, 0xC3 }) &&
+            ReadBytes(_moduleBase + 0x437E410, 5) is byte[] selector &&
+            selector.SequenceEqual(new byte[] { 0x0F, 0xB6, 0x01, 0x3C, 0x02 });
+        if (!supported) return;
+        ulong vbtable = ReadPtr(staffBase + 8);
+        byte[]? offsetBytes = ReadBytes(vbtable + 8, 4);
+        if (offsetBytes == null) return;
+        int offset = BitConverter.ToInt32(offsetBytes);
+        if (offset is < 0 or > 0x1000) return;
+        ulong facet = staffBase + 8 + (ulong)offset;
+        // Validate the virtual base's reverse link back to this person.
+        byte[]? personOffsetBytes = ReadBytes(ReadPtr(facet + 8) + 4, 4);
+        if (personOffsetBytes == null) return;
+        long personOffset = BitConverter.ToInt32(personOffsetBytes);
+        if ((long)facet + 8 + personOffset != (long)person) return;
+        ulong preferences = ReadPtr(facet + 0xD8);
+        byte[]? values = preferences == 0 ? null : ReadBytes(preferences, StaffJobPreferences.Count);
+        staff.jobInterests = StaffJobPreferences.Interests(values);
+        // +0xDA is a cached choice, not the job-interest list. Unemployed staff may
+        // leave it unset; FM then chooses from the list (RVA 0x2133790).
+        int stored = ReadByte(staffBase + StaffPreferredJobOffset);
+        staff.preferredJobId = ReadPtr(staffBase + 0x60) != 0 && JobNames.ContainsKey(stored) ? stored :
+            StaffJobPreferences.PreferredJob(values, ReadByte(staffBase + 0x34), ReadByte(staffBase + 0x39));
     }
 
     // Offsets are relative to StaffAttrsOffset (0x18 in the FM24 24.4.x layout).
@@ -961,7 +1113,8 @@ internal sealed class Fm24Reader : IDisposable
         [34] = "Goalkeeping Coach", [35] = "Player/Goalkeeping Coach", [36] = "Head of Data Analysis", [38] = "Club Doctor",
         [40] = "Head of Sports Science", [42] = "Data Analyst", [44] = "Chief Scout", [45] = "Player/Chief Scout",
         [46] = "Doctor", [48] = "Sports Scientist", [49] = "Player/Youth Coach", [50] = "Head Physio",
-        [52] = "U19 Manager", [54] = "First Team Coach", [64] = "Head of Youth Development",
+        [52] = "U19 Manager", [54] = "First Team Coach",
+        [58] = "Performance Analyst", [60] = "Head Performance Analyst", [62] = "Recruitment Analyst", [64] = "Head of Youth Development",
         [65] = "Player/Head of Youth Development", [66] = "Owner", [70] = "President", [86] = "Loan Manager",
         [88] = "Technical Director", [144] = "Caretaker Manager",
     };
@@ -1537,6 +1690,8 @@ internal sealed class Fm24Reader : IDisposable
     private byte ReadByte(ulong address) { byte[]? b = ReadBytes(address, 1); return b == null ? (byte)0 : b[0]; }
     private static int Attr(byte raw) => raw == 0 ? 0 : Math.Clamp((raw + 2) / 5, 1, 20);
     private static long? Money(uint value) => value == 0 ? null : value;
+    // FM uses 0xFFFFFFFF for a market value that has not been set. Do not expose it as £4.29B.
+    private static long? MarketValue(uint value) => value == 0 || value == uint.MaxValue ? null : value;
     private static int AgeAt(int year, int doy, DateTime date) => year > 0 ? Math.Clamp(date.Year - year - (doy > date.DayOfYear ? 1 : 0), 0, 80) : 0;
 
     private static DateTime? DecodeDate(uint raw)

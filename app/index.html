@@ -600,10 +600,10 @@
         <div class="fsection" data-sec="financial">
           <div class="fsec-head">Financial</div>
           <div class="frow" id="f-price-row">
-            <span>Max. value</span><input type="text" id="f-price" placeholder="10M" />
+            <span data-help="valueHint">Max. FM value</span><input type="text" id="f-price" placeholder="10M" />
           </div>
-          <div class="frow capa-row" id="f-fee-row">
-            <span>Max. asking price</span><input type="text" id="f-fee" placeholder="15M" />
+          <div class="frow" id="f-fee-row">
+            <span data-help="askingPriceHint">Max. AI minimum bid</span><input type="text" id="f-fee" placeholder="15M" disabled />
           </div>
           <div class="frow">
             <span id="f-wage-label">Maximum wage</span
@@ -630,16 +630,21 @@
           <div class="fsec-head">Availability</div>
           <div class="frow" id="f-interest-row">
             <span
-              ><span>Interest =</span>
+              ><span>FM interest</span>
               <span class="col-help" data-help="interestHint">?</span></span
             >
-            <select id="f-interest">
-              <option value="0">All</option>
-              <option value="25">Low</option>
-              <option value="45">Fair</option>
-              <option value="70">High</option>
+            <select id="f-interest" disabled title="Interest is not available in the current player data">
+              <option value="unavailable">Unavailable in player data</option>
             </select>
           </div>
+          <div class="frow" id="f-interest-kind-row">
+            <span>Interested in</span>
+            <select id="f-interest-kind"><option value="transfer">Transfer</option><option value="loan">Loan</option></select>
+          </div>
+          <button id="btn-fm-transfer-read" type="button" disabled>Read FM data for results</button>
+          <button id="btn-fm-transfer-read-selected" type="button" disabled>Read FM data for selected rows</button>
+          <button id="btn-fm-transfer-pause" type="button" disabled>Pause FM data read</button>
+          <div id="fm-transfer-status" class="dim" role="status" aria-live="polite"></div>
           <div class="frow" id="f-tstatus-row">
             <span>Transfer status</span>
             <select id="f-tstatus">
@@ -752,6 +757,8 @@
           <div class="club-list-toolbar">
             <h2>Clubs</h2>
             <small>N/A means data is not available in this dump</small>
+            <button id="club-xi-calculate" type="button"></button>
+            <span id="club-xi-status" class="dim"></span>
             <span id="club-list-count" class="dim"></span>
           </div>
           <div id="club-list-table-wrap">
@@ -848,6 +855,7 @@
     <script defer src="scripts/01-presentation-and-history.js"></script>
     <script defer src="scripts/02-player-models.js"></script>
     <script defer src="scripts/03-data-loading.js"></script>
+    <script defer src="scripts/03b-native-transfer-data.js"></script>
     <script defer src="scripts/04-filters.js"></script>
     <script defer src="scripts/05-table.js"></script>
     <script defer src="scripts/06-shortlist-and-clipboard.js"></script>

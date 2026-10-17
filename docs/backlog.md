@@ -2,6 +2,15 @@
 
 Status overview of what is done, what is open, and ideas. Not yet built where it says "backlog".
 
+## October 2026: native transfer queries
+
+Implemented FM's actual interest filters, valuation range builder and buyer-specific
+cash-bid value boundary using REA and assembly analysis. The stored guide value is
+`player + 0x1D0`, correcting the old `+0x1B0` offset. See
+[native transfer research](fm24-transfer-research.md) for evidence and limitations.
+The earlier negative investigation and model recommendations below are historical
+and are superseded by this implementation.
+
 ## 20. QA round 17-07 (v1.2 prep) - DONE + recommendations
 
 Full pass over the tool: i18n audit (NL/EN dictionaries are symmetric, 4 hardcoded Dutch
@@ -16,14 +25,12 @@ F9 + a check of the "Sample te huur" list in diagnostics.txt against FM.
 
 ### Recommended next features (not built, in rough priority order)
 
-1. **Real asking price - DROPPED after investigation (17-07)**: a stored per-player
-   asking price does not exist. FM computes the demanded fee per negotiation and it is
-   buyer-dependent (reputation gap, window, competing bids), so there is nothing static
-   to read. The only materialized asking price (club explicitly sets a price when
-   listing) lands exactly in the value field we already read (calibration 14-07, 4/4
-   ±1%), and the app already shows those exact and unmarked. Genie Scout/FMRTE read no
-   such field either. Remaining improvement path: sharpening the fee model with real
-   paid-vs-value data points (release clauses were explored and dropped, see item 8).
+1. **AI minimum accepted bid — implemented October 2026**: the earlier static-field
+   search did not establish that FM's calculation was inaccessible. The native-query
+   worker now runs the buyer-specific price and cash offer-value evaluator in isolated
+   memory, checks the amount and one pound below, and publishes verified boundaries.
+   No listed asking price or estimated fee is substituted. Other transfer-policy checks
+   can still prevent a transfer.
 2. **Trends across dumps - BUILT (17-07)**: every loaded dump posts a compact snapshot
    (uid → CA/PA/value) to the local server, stored delta-only per manager in
    DATA_DIR\history (49k save: ~2 MB baseline + KBs per snapshot; 321k mega save:
@@ -171,7 +178,7 @@ real running game (correct detection).
   first (NL then becomes "VriendenLoterij Eredivisie", sponsor names, just like FM itself shows).
   Check after F9: Vallecano players on "Spaanse Eerste Divisie" (or LALIGA name)?
 
-## 4. Interest model - DONE (personality included)
+## 4. Interest model - historical app estimate, removed
 
 Rebuilt with the now-available personality: ambition pushes toward a step up and dampens
 sideways/downward moves, loyalty dampens, young players relocate less easily (age damping),
@@ -179,7 +186,9 @@ and for young players the club gap weighs heavier than the status gap. Art.19 (n
 Tested against real data (who does/doesn't want to join Feyenoord): from "everyone wants to come" to
 **~13-15/17 correct**; the known false positives are gone. Remaining errors are borderline cases (48-49,
 label "Redelijk") that cannot be distinguished from the real cases on the data - do not
-overfit further. Further gains would require an FM "interest" field if that can be read somewhere.
+overfit further. This was an app estimate, not Football Manager's in-game interest. It has
+been removed from the current table. The native-query worker now evaluates FM's six
+interest filter thresholds directly for the active manager.
 
 ## Robustness & tests - DONE (July)
 
@@ -202,15 +211,20 @@ overfit further. Further gains would require an FM "interest" field if that can 
   loaded in Node via a test harness and checked on invariants (value/asking price/interest/potential/role).
   Catches regressions when tuning the models. See `test/README.md`.
 
-## 5. Market value - SOLVED (real value from memory)
+## 5. Market value - stored FM field, estimate fallback removed
 
 **Calibration set removed (15-07)**: an automatic calibration set was running (`value-history.json` +
 `/api/value-history`). Now that the real value comes from memory and the estimation model is on point,
 it was redundant, removed (archiving, endpoint, file). Can be temporarily re-enabled
 if the estimation model ever needs recalibrating. See `docs/value-model.md`.
 
+Current behavior: the native reader reads the stored guide from `plao + 0x1D0` and
+ignores the `0xFFFFFFFF` unset marker. Live queries use FM's UI valuation range builder.
+Unknowns remain blank. The former `+0x1B0` offset was incorrect. The displayed range and
+buyer-dependent minimum cash bid are separate native calculations.
 
-The plugin now reads FM's real transfer value from `pl+0x234` (verified via offset discovery
+
+Historical implementation: the plugin read a value from `pl+0x234` (verified via offset discovery
 against in-game amounts). ~74% of players get the exact FM value; the rest (sentinel
 0xFFFFFFFF/300000000) falls back to the reputation estimation model below. Bidstrup: €62M guess →
 real €15.8M. This makes the separate estimate largely redundant, but it stays as fallback.

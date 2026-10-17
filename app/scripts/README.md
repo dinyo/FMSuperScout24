@@ -6,9 +6,10 @@ Scripts share app state and load in the order listed in index.html.
 | File                                    | Responsibility                                        |
 | --------------------------------------- | ----------------------------------------------------- |
 | 00-state-and-text.js                    | Shared state, constants, and English UI copy          |
-| 01-presentation-and-history.js          | Formatting, player estimates, and development history |
+| 01-presentation-and-history.js          | FM value, asking price and interest display, formatting, and development history |
 | 02-player-models.js                     | Attribute filters and player/staff models             |
 | 03-data-loading.js                     | Dump loading, normalization, and saved settings       |
+| 03b-native-transfer-data.js            | Live FM value, cash-bid boundary, and interest queries |
 | 04-filters.js                          | Player filters, active chips, and presets             |
 | 05-table.js                            | Table columns, sorting, and visible rows              |
 | 06-shortlist-and-clipboard.js          | Shortlist operations and clipboard export             |

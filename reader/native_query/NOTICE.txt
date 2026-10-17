@@ -1,0 +1,9 @@
+FMSuperScout24.NativeQuery
+
+This worker queries supported FM24 routines in the running game process through
+a temporary message hook. No FM24 executable or game code is distributed here.
+The worker source is supplied in reader/native_query in the application repository.
+
+PyInstaller 6.22.3 is used to bundle Python. Its bootloader has the PyInstaller
+exception allowing distribution of the resulting application:
+https://pyinstaller.org/en/v6.22.3/license.html

@@ -5,6 +5,39 @@ new release is built, so the Unreleased section below is what the next release s
 
 ## [Unreleased]
 
+## [1.5.0-24.3] - 2026-10-17
+
+### Added
+- Manually read FM value ranges, transfer and loan interest, and verified AI minimum
+  cash bids for filtered results or selected rows, with bounded batches and a pause control.
+- Playing Time happiness scores and native status labels for your club, plus an Unhappy
+  Playing Time XI view that respects position proficiency and assigns each player once.
+- Calculate Best XI ratings and formations for displayed clubs, with club lineup details.
+- Separate preferred job and current role columns for staff, and national-team labels.
+- Documented recovered FM24 formulas and added an interest-threshold research utility.
+
+### Changed
+- Replaced estimated values, fees and interest with FM data. Preserve the stored guide
+  value in a separate column; show unknown results when native calculations are unavailable.
+- Expanded formation presets and refreshed Best XI, remaining-player and club layouts.
+- Installer builds bundle the native-query worker, hook DLL and runtime notices, and use
+  a pinned Node.js runtime verified against the official archive checksum.
+- Transfer reads remain paused until requested. Native calculations require the supported
+  FM24 executable and run on FM's UI thread; the main memory scan remains read-only.
+
+### Fixed
+- Resolve staff job interests through the staff virtual base and use the full
+  preference list when the cached job is unset. Unemployed staff such as Dylan
+  Rousselle now show their preferred role. Profiles include all 15 interest groups
+  and scores; analytical roles have explicit labels.
+- Correct the stored guide-value offset and reject values from older, unverified dumps.
+- Keep fatal native-query failures from appearing as valid zero values or interest results.
+- Reapply filters after a native-query failure so unresolved candidates do not remain hidden.
+- Determine interest-filter availability from the selected transfer or loan mode, including
+  players explicitly marked Not interested.
+- Clear the active club detail when opening a player profile so later club calculations
+  cannot replace the displayed player.
+
 ## [1.5.0-24.2] - 2026-10-11
 
 ### Changed

@@ -17,6 +17,7 @@ function loadAndApplyPreset(data) {
     updatePresetLabel();
     populateMetaGroupSelect();
     renderTable();
+    if (state.mode === 'club-list') applyClubListFilters();
   } catch (e) {
     console.error('Failed to apply meta preset:', e);
     alert(`${text('presetLoadError')}: ${e.message}`);

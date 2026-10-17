@@ -2,7 +2,7 @@
 const ROW_COLLATOR = new Intl.Collator('en');
 const modeKey = () => (state.mode === 'staff' ? 'staff' : 'players');
 function baseCols() {
-  return modeKey() === 'staff' ? STAFF_COLS : PLAYER_COLS;
+  return modeKey() === 'staff' ? STAFF_COLS : PLAYER_COLS.filter((c) => c.key !== 'playingTimeHappiness' || state.mode === 'myplayer');
 }
 function colCfg() {
   const k = modeKey();

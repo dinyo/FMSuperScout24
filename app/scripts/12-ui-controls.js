@@ -67,6 +67,28 @@ bindCompetitionSuggest(
   applyClubListFilters,
 );
 $('f-interest').addEventListener('change', applyFilters);
+$('f-interest-kind').addEventListener('change', () => {
+  updateGameInterestFilterOptions(state.allPlayers || state.players);
+  FILTER_RESULT_CACHE.clear();
+  applyFilters();
+  if (state.selected) showDetail(state.selected);
+});
+function startManualNativeTransferRead(selectedOnly = false) {
+  const players = selectedOnly
+    ? (state.allPlayers || state.players).filter((p) => state.bulkSelected.has(p.id))
+    : [...state.filtered, ...(state.nativeTransferCandidates || [])];
+  state.nativeTransfer.paused = false;
+  queueNativeTransferData(players);
+  if (!nativeTransferBusy) state.nativeTransfer.paused = true;
+  renderNativeTransferStatus();
+}
+$('btn-fm-transfer-read').onclick = () => startManualNativeTransferRead();
+$('btn-fm-transfer-read-selected').onclick = () => startManualNativeTransferRead(true);
+$('btn-fm-transfer-pause').onclick = () => {
+  state.nativeTransfer.paused = true;
+  nativeTransferQueue.clear();
+  renderNativeTransferStatus();
+};
 $('f-role').addEventListener('change', () => {
   state.role = $('f-role').value;
   localStorage.setItem('fmss_role', state.role);
@@ -91,7 +113,8 @@ $('btn-clear').onclick = () => {
   if (state.mode === 'myplayer') $('f-myclub').checked = true;
   $('f-staffrole').value = '';
   $('f-gender').value = '';
-  $('f-interest').value = '0';
+  $('f-interest').value = $('f-interest').disabled ? 'unavailable' : '';
+  $('f-interest-kind').value = 'transfer';
   $('f-contract').value = '';
   $('f-tstatus').value = '';
   $('f-role').value = '';
@@ -262,14 +285,13 @@ function applyHideCapa() {
   document.body.classList.toggle('hide-capa', state.hideCapa);
   document.body.classList.toggle('hide-meta', state.hideMeta);
   // Clear filters for hidden stats so they cannot affect results invisibly.
-  // CA, PA, asking price, and growth follow the CA/PA setting; meta has its own setting.
+  // CA, PA, and growth follow the CA/PA setting; exact FM value and asking price remain visible.
   if (state.hideCapa)
     [
       'f-ca-min',
       'f-ca-max',
       'f-pa-min',
       'f-pa-max',
-      'f-fee',
       'f-growth-min',
       'f-growth-max',
       'f-metapa-min',
@@ -483,8 +505,6 @@ $('btn-shortlist-sync').onclick = async () => {
         }
       }
       if (addedPlayers) {
-        state._wageCeil = undefined;
-        state._clubWages = null;
         CLUB_FINANCE_VALID_CACHE = new WeakMap();
       }
       // Keep valid IDs even when FM exposes a ghost/hybrid row that the last
@@ -580,6 +600,11 @@ function setMode(mode) {
   $('f-price-row').style.display = isStaff ? 'none' : '';
   $('f-fee-row').style.display = isStaff ? 'none' : '';
   $('f-interest-row').style.display = isStaff ? 'none' : '';
+  $('f-interest-kind-row').style.display = isStaff ? 'none' : '';
+  $('btn-fm-transfer-read').style.display = isStaff ? 'none' : '';
+  $('btn-fm-transfer-read-selected').style.display = isStaff ? 'none' : '';
+  $('btn-fm-transfer-pause').style.display = isStaff ? 'none' : '';
+  $('fm-transfer-status').style.display = isStaff ? 'none' : '';
   $('f-tstatus-row').style.display = isStaff ? 'none' : '';
   $('f-myclub-row').style.display = isStaff || isMyPlayer ? 'none' : '';
   $('f-shortlist-row').style.display = isStaff || mode === 'shortlist' ? 'none' : '';

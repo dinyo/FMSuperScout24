@@ -619,6 +619,9 @@ const JOB_LABEL = {
   50: 'Head physio',
   52: 'U19 manager',
   54: 'First-team coach',
+  58: 'Performance analyst',
+  60: 'Head performance analyst',
+  62: 'Recruitment analyst',
   64: 'Head of youth development',
   65: 'Player/Head of youth',
   66: 'Owner',
@@ -626,6 +629,11 @@ const JOB_LABEL = {
   86: 'Loan manager',
   88: 'Technical director',
   144: 'Caretaker manager',
+};
+// FM stores a preferred job separately from a staff member's current contract role.
+const PREFERRED_JOB_LABEL = {
+  ...JOB_LABEL, 16: 'Head Coach', 17: 'Player/Head Coach',
+  20: 'Assistant Coach', 21: 'Player/Assistant Coach',
 };
 const LEGACY_JOB_LABEL = {
   Speler: 'Player',
@@ -676,26 +684,31 @@ const NON_RECRUITABLE_JOB_NAMES = new Set([
   'owner',
   'president',
 ]);
-const staffRoleKey = (p) => {
+const preferredJobLabel = (p) => {
+  const id = Number(p?.preferredJobId);
+  if (Number.isInteger(id) && PREFERRED_JOB_LABEL[id]) return PREFERRED_JOB_LABEL[id];
+  return p?.preferredJob || '';
+};
+const currentJobLabel = (p) => {
   const id = Number(p?.jobId);
-  return Number.isInteger(id) && JOB_LABEL[id]
-    ? JOB_LABEL[id]
-    : LEGACY_JOB_LABEL[p?.job] || p?.job || '';
+  if (Number.isInteger(id) && JOB_LABEL[id]) return JOB_LABEL[id];
+  if (p?.job && LEGACY_JOB_LABEL[p.job]) return LEGACY_JOB_LABEL[p.job];
+  return p?.job || '';
+};
+const staffRoleKey = (p) => {
+  return preferredJobLabel(p) || currentJobLabel(p);
 };
 function isRecruitableStaff(p) {
-  const id = Number(p?.jobId);
+  const id = Number(p?.preferredJobId ?? p?.jobId);
   if (Number.isInteger(id) && NON_RECRUITABLE_JOB_IDS.has(id)) return false;
   return !NON_RECRUITABLE_JOB_NAMES.has(
-    String(p?.job || '')
+    String(preferredJobLabel(p) || currentJobLabel(p))
       .trim()
       .toLowerCase(),
   );
 }
 const jobLabel = (p) => {
-  const L = JOB_LABEL;
-  if (p && p.jobId && L[p.jobId]) return L[p.jobId];
-  if (p && p.job && LEGACY_JOB_LABEL[p.job]) return LEGACY_JOB_LABEL[p.job];
-  return (p && p.job) || (p && p.staffAttrs ? text('jobStaff') : '–');
+  return preferredJobLabel(p) || currentJobLabel(p) || (p?.staffAttrs ? text('jobStaff') : '–');
 };
 const ROLE_BY_ID = Object.fromEntries(ROLES.map((r) => [r.id, r]));
 // Role score on the 1-20 scale; key attributes count double. Requires attributes (players).

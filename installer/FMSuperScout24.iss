@@ -47,6 +47,10 @@ en.FirstRunNote=Done. Start FM24, load a save, then click "New data" in FMSuperS
 [Files]
 Source: "{#Stage}\viewer\*"; DestDir: "{app}"; Flags: recursesubdirs ignoreversion
 Source: "{#Stage}\reader\FMSuperScout24.Reader.exe"; DestDir: "{app}\reader"; Flags: ignoreversion
+Source: "{#Stage}\reader\FMSuperScout24.NativeQuery.exe"; DestDir: "{app}\reader"; Flags: ignoreversion
+Source: "{#Stage}\reader\FMSuperScout24.FM24Hook.dll"; DestDir: "{app}\reader"; Flags: ignoreversion
+Source: "{#Stage}\reader\_native-runtime\*"; DestDir: "{app}\reader\_native-runtime"; Flags: recursesubdirs ignoreversion
+Source: "{#Stage}\reader\licenses\*"; DestDir: "{app}\reader\licenses"; Flags: recursesubdirs ignoreversion
 
 [Icons]
 Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\FMSuperScout24.vbs"; WorkingDir: "{app}"; IconFilename: "{app}\icon.ico"

@@ -1,6 +1,28 @@
 # FMSuperScout 24 1.5.0-24.x
 
-FM24 edition updates from 1.5.0-24.0 through 1.5.0-24.2.
+## 1.5.0-24.3
+
+- Read FM value ranges, transfer or loan interest, and verified AI minimum cash bids for
+  the current results or selected players. Reads start only when requested, run in bounded
+  batches, and can be paused after the current batch. The original stored guide value has
+  its own column; unavailable results stay unknown instead of using estimates.
+- These calculations require the supported FM24 executable and a visible game window.
+  The bundled hook runs verified routines inside FM on its UI thread. The main memory
+  dump remains read-only. Minimum cash bids are checks of AI offer acceptance, not a
+  guarantee of a completed transfer or agreed player contract.
+- My Players shows Playing Time happiness scores and native status labels when available.
+  The Unhappy Playing Time XI places the least happy eligible players without duplicates.
+- Calculate Best XI scores and formations for displayed clubs and open their lineup details.
+  Expanded formation presets and updated pitch and remaining-player layouts improve comparison.
+- Staff now distinguish preferred job from current role; national-team staff show their team.
+  Unemployed staff with an unset cached job use their full FM job-interest list, so
+  Dylan Rousselle correctly appears as Head of Youth Development. Profiles show
+  the raw interest groups and scores, and analytical roles have explicit labels.
+- Builds include the native-query runtime and licenses and use a pinned, checksum-verified
+  Node.js runtime. Formula recovery notes and an interest-threshold utility document research.
+- Fixed the stored guide-value offset, fatal native errors showing zero-price data,
+  filter results remaining hidden after a native-query failure, transfer/loan
+  interest-filter availability, and stale club details replacing player profiles.
 
 ## FM24 data and shortlist
 
@@ -38,8 +60,8 @@ FM24 edition updates from 1.5.0-24.0 through 1.5.0-24.2.
   in 24.1 has been removed in 24.2.
 - Search ignores accents in player, club, competition, nationality and attribute names.
 - Dutch, English, French and German translations cover the updated interface and filters.
-- The reader's guide value is treated as market value; the displayed transfer fee remains
-  an estimate because FM determines the asking price during negotiations.
+- In releases through 24.2, the reader's guide value is treated as market value and the
+  displayed transfer fee is an estimate. The upcoming changes above replace that behavior.
 
 ## Refinements
 

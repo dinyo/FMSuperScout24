@@ -566,12 +566,24 @@ function profMode() {
 }
 function closeDetail() {
   if (state.selected) metaPositionScoresCache.delete(state.selected);
+  activeClubDetail = null;
   $('detail').classList.add('hidden');
   $('detail-backdrop').classList.add('hidden');
   state.selected = null;
   renderVisible();
 }
+function staffJobInterestsHtml(p) {
+  const interests = Object.entries(p.jobInterests || {})
+    .filter(([, value]) => Number.isInteger(value) && value >= 0 && value <= 20)
+    .sort((a, b) => b[1] - a[1]);
+  if (!interests.length) return '';
+  return `<section class="interest-box"><b>Job interests</b>
+    <p class="dim">FM role preferences (0 to 20). Data Analysis is shared by analytical roles.</p>
+    <table style="width:100%">${interests.map(([role, value]) =>
+      `<tr><td>${escHtml(role)}</td><td style="text-align:right">${value}/20</td></tr>`).join('')}</table></section>`;
+}
 function showDetail(p) {
+  activeClubDetail = null;
   if (state.selected && state.selected !== p) metaPositionScoresCache.delete(state.selected);
   state.selected = p;
   renderVisible();
@@ -581,13 +593,7 @@ function showDetail(p) {
   $('detail').classList.remove('hidden');
   const isPlayer = !!p.attrs;
   const on = state.shortlist.has(p.id);
-  const ev = estValue(p);
-  const valTxt =
-    ev.v == null || ev.v === 0
-      ? '–'
-      : ev.est
-        ? `${fmtMoney(ev.lo)} – ${fmtMoney(ev.hi)}`
-        : fmtMoney(ev.v);
+  const valTxt = fmValueHtml(p);
 
   const gauge =
     !state.hideCapa && (p.ca != null || p.pa != null)
@@ -603,9 +609,9 @@ function showDetail(p) {
   <div class="sub">${getAge(p)} · ${escHtml(natsLabel(p))}${isEu(p) ? ' · <span class="eu-yes">EU</span>' : ''} · ${clubLabel(p)}${p.div ? ` · <span class="dim">${escHtml(playerDivisionLabel(p))}</span>` : ''}</div>
   ${gauge}
   <div class="kv">
-    ${isPlayer ? `<div><b>${text('c_pos')}</b> ${escHtml(p.pos || '–')}</div><div><b>${text('foot')}</b> ${escHtml(footLabel(p))}</div>` : `<div><b>${text('c_role')}</b> ${escHtml(jobLabel(p))}</div>`}
+    ${isPlayer ? `<div><b>${text('c_pos')}</b> ${escHtml(p.pos || '–')}</div><div><b>${text('foot')}</b> ${escHtml(footLabel(p))}</div>` : `<div><b>${text('c_preferredJob')}</b> ${escHtml(preferredJobLabel(p) || jobLabel(p))}</div>${currentJobLabel(p) ? `<div><b>${text('c_currentRole')}</b> ${escHtml(currentJobLabel(p))}</div>` : ''}`}
     <div><b>${text('estval')}</b> ${valTxt}</div>
-    ${!state.hideCapa && feeEstimate(p).v > 0 ? `<div><b>${text('c_fee')}</b> ${fmtMoney(feeEstimate(p).v * 0.85)} – ${fmtMoney(feeEstimate(p).v * 1.15)}</div>` : ''}
+    ${fmAskingPrice(p).v != null ? `<div><b>${text('c_fee')}</b> ${fmtMoney(fmAskingPrice(p).v)}</div>` : ''}
     <div><b>${text('wageLabel')}</b> ${fmtWage(p.wage)}${p.wage > 0 ? ` <span class="dim">${wageSuf()}</span>` : ''}</div>
     ${p.worldRep ? `<div><b>${text('repLabel')}</b> ${p.worldRep}</div>` : ''}
     <div><b>${text('contractLabel')}</b> ${fmtDate(p.expires)}</div>
@@ -649,10 +655,10 @@ function showDetail(p) {
     flags.push(`<span class="pill good" data-help="attainHint">${text('attainable')}</span>`);
   if (flags.length) html += '<div>' + flags.join('') + '</div>';
 
+  if (!isPlayer) html += staffJobInterestsHtml(p);
+
   if (isPlayer) {
-    const i = interestEstimate(p);
-    if (i)
-      html += `<div class="interest-box" data-help="interestHint"><b>${text('interestTitle')}:</b> <span class="int ${i.cls}">${i.label}</span> <span class="dim">(${i.score}/100)</span> <span class="col-help">?</span>${i.note ? `<div class="int-note">${text(i.note === 'minor' ? 'minorNote' : 'minorIntlNote')}</div>` : ''}</div>`;
+    html += `<div class="interest-box" data-help="interestHint"><b>${text('interestTitle')}:</b> <span class="dim">${gameInterestLabel(p) || text('interestUnavailable')}</span> <span class="col-help">?</span></div>`;
     html += '<div id="dev-box"></div>'; // development-graph (trends) loads async
   }
 
@@ -935,8 +941,8 @@ const CARDL = {
   cur: 'CURRENT',
   pot: 'POTENTIAL',
   roles: 'TOP ROLES',
-  value: 'VALUE',
-  ask: 'ASKING PRICE',
+  value: 'FM VALUE',
+  ask: 'MIN. CASH BID',
   wage: 'WAGE',
   contract: 'CONTRACT',
   rep: 'Reputation',
@@ -1010,12 +1016,10 @@ function buildCardModel(p) {
           : { t: L.injL, c: '#46c46e' }
       : null;
 
-  const ev = estValue(p);
-  const fee = feeEstimate(p);
-  // Keep scout stars visible when hidden stats are enabled, but hide raw CA/PA numbers
-  // and the asking price estimate derived from them.
+  const fee = fmAskingPrice(p);
+  // Keep scout stars visible when hidden stats are enabled, but hide raw CA/PA numbers.
   const hideNum = state.hideCapa;
-  const ask = !hideNum && fee.v > 0 ? `${fmtMoney(fee.v * 0.85)}–${fmtMoney(fee.v * 1.15)}` : '–';
+  const ask = fee.v != null ? fmtMoney(fee.v) : '–';
   const roles = bestRoles(p, 2).map((r) => [roleName(r.id), r.score]);
   const snapDate = state.meta.gameDate ? fmtDate(state.meta.gameDate) : '';
 
@@ -1038,7 +1042,7 @@ function buildCardModel(p) {
     hexNum: state.hideMeta ? null : meta != null ? fmtMeta(meta, metaGroup(p)) : '\u2013',
     groups: cardGroups(p, isGk),
     roles,
-    value: ev.v > 0 ? (ev.est ? '~' : '') + fmtMoney(ev.v) : '–',
+    value: fmValueText(p),
     ask,
     wage: p.wage > 0 ? fmtWage(p.wage) + ' ' + wageSuf() : '–',
     contract: fmtDate(p.expires) || '–',

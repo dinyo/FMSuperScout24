@@ -834,11 +834,10 @@ const natsLabel = (player) => {
   return record ? record[0] : (player.nat || []).map(natLabel).join(', ');
 };
 
-// Hidden-stats settings control CA/PA, growth, estimated fees, and meta scores derived from those values.
+// Hidden-stats settings control CA/PA, growth, and meta scores derived from those values.
 // PA meta depends on both CA/PA visibility and the meta-score setting.
 const hiddenStatCol = (k) =>
-  (state.hideCapa &&
-    (k === 'ca' || k === 'pa' || k === 'fee' || k === 'growth' || k === 'metapa')) ||
+  (state.hideCapa && (k === 'ca' || k === 'pa' || k === 'growth' || k === 'metapa')) ||
   (state.hideMeta && (k === 'meta' || k === 'metapa')) ||
   (k === 'growth' && !histReady());
 
@@ -981,22 +980,30 @@ const PLAYER_COLS = [
     w: 68,
   },
   {
+    key: 'valueBefore',
+    label: 'c_valueBefore',
+    num: true,
+    get: (p) => fmStoredValue(p).v ?? -1,
+    render: (p) => fmStoredValue(p).v == null ? '<span class="dim">?</span>' : fmtMoney(fmStoredValue(p).v),
+    w: 115,
+  },
+  {
     key: 'value',
     label: 'c_value',
     num: true,
-    get: (p) => estValue(p).v,
-    render: (p) => estHtml(p),
-    w: 95,
+    get: (p) => p.fmValueRead ? fmValue(p).v ?? -1 : -1,
+    render: (p) => p.fmValueRead ? fmValueHtml(p) : '<span class="dim">?</span>',
+    w: 155,
   },
   {
     key: 'fee',
     label: 'c_fee',
     num: true,
     get: (p) => {
-      const f = feeEstimate(p);
+      const f = fmAskingPrice(p);
       return f.v == null ? -1 : f.v;
     },
-    render: (p) => feeHtml(p),
+    render: (p) => askingPriceHtml(p),
     w: 105,
   },
   {
@@ -1006,6 +1013,17 @@ const PLAYER_COLS = [
     get: (p) => p.wage,
     fmt: fmtWage,
     w: 100,
+  },
+  {
+    key: 'playingTimeHappiness',
+    label: 'c_playingTimeHappiness',
+    num: true,
+    get: (p) => p.playingTimeHappiness,
+    render: (p) =>
+      p.playingTimeHappiness == null
+        ? '<span class="dim">–</span>'
+        : `<span title="Signed raw Playing Time score. ${p.playingTimeHappinessStatus ? 'Status calculated from FM data.' : 'Native status has not been calculated for this player.'}">${escHtml(p.playingTimeHappinessStatus || 'Unknown')} (${p.playingTimeHappiness})</span>`,
+    w: 170,
   },
   {
     key: 'expires',
@@ -1019,12 +1037,9 @@ const PLAYER_COLS = [
     key: 'interest',
     label: 'c_interest',
     help: 'interestHint',
-    get: (p) => {
-      const i = interestEstimate(p);
-      return i ? i.score : -1;
-    },
-    render: (p) => intHtml(p),
-    w: 110,
+    get: (p) => gameInterestOrder(gameInterestLabel(p)),
+    render: (p) => gameInterestHtml(p),
+    w: 160,
   },
   {
     key: 'status',
@@ -1135,7 +1150,22 @@ const staffTrainingStarsHtml = (value) =>
 const STAFF_COLS = [
   { key: 'name', label: 'c_name', get: (p) => p.name, name: true, w: 180 },
   { key: 'age', label: 'c_age', num: true, get: (p) => getAge(p), w: 50 },
-  { key: 'job', label: 'c_role', get: (p) => jobLabel(p), w: 150 },
+  {
+    key: 'job',
+    label: 'c_preferredJob',
+    get: (p) => preferredJobLabel(p) || jobLabel(p),
+    w: 150,
+  },
+  {
+    key: 'currentJob',
+    label: 'c_currentRole',
+    get: (p) => currentJobLabel(p),
+    render: (p) => {
+      const job = currentJobLabel(p);
+      return job ? escHtml(job) : '<span class="dim">–</span>';
+    },
+    w: 150,
+  },
   {
     key: 'club',
     label: 'c_club',
@@ -1203,267 +1233,96 @@ const STAFF_COLS = [
   })),
 ];
 
-// ---------- estimated market value (GBP) ----------
-// Calibrated to ~45 players with a real FM value (dump + in-game screenshots, low/mid/top).
-// Most important finding from that data: FM value mainly follows WORLD REPUTATION (fame), not CA.
-// Players with the same reputation have similar values regardless of CA. CA is strongly correlated
-// with reputation, so including it makes the estimate unstable. Use reputation, age, contract length,
-// and a small youth adjustment. Strong players with low reputation may be underestimated.
-// Reading the value directly from game memory would be more accurate; see docs/backlog.md.
-const VAL_B = {
-  c0: 10.96,
-  wRep: 0.997,
-  age: -0.069,
-  yhead: -0.041,
-  lnC: 0.507,
-};
-function wSat(w) {
-  return Math.min(w, 7500) + 0.3 * Math.max(0, w - 7500);
-} // fame levels off at the top
+// ---------- exact in-game values (GBP) ----------
 // A free agent has neither a club nor a club reputation. A club with a reputation but no name is
 // unresolved, not a free agent; see clubLabel().
-const isFree = (p) => !p.club && !(p.clubRep > 0);
+const nationalTeamLabel = (p) => {
+  const id = Number(p?.nationalTeamId) || 0;
+  const record = typeof NATIONS !== 'undefined' && id > 0 ? NATIONS[id] : null;
+  return record ? record[0] : null;
+};
+const isFree = (p) => !p.club && !nationalTeamLabel(p) && !(p.clubRep > 0);
 // Show the club name, an unknown-club label when only its reputation is available, or clubless
 // for a genuine free agent.
 function clubLabel(p) {
   if (p.club) return escHtml(p.club);
+  const nationalTeam = nationalTeamLabel(p);
+  if (nationalTeam) return `${escHtml(nationalTeam)} <span class="dim">(national team)</span>`;
   if (p.clubRep > 0)
     return `<span class="dim" data-tip="${escHtml(tf('clubNotRead', { r: p.clubRep }))}">${text('clubUnknown')}</span>`;
   // A dash is enough here because the status pill already identifies free agents.
   return `<span class="dim" data-help="clubless">–</span>`;
 }
-// Memoized per player (_ev); see metaScore. Consumers only read the object.
-function estValue(p) {
-  if (p._ev !== undefined) return p._ev;
-  return (p._ev = estValueCalc(p));
-}
-function estValueCalc(p) {
-  if (p.value != null && p.value > 0)
-    return {
-      v: p.value,
-      est: false,
-      lo: Math.round(p.value * 0.85),
-      hi: Math.round(p.value * 1.15),
-    };
-  if (!p.ca || p.ca < 1) return { v: null, est: false };
-  if (isFree(p)) return { v: 0, est: true };
-  const a = getAge(p) || 25;
-  const m = monthsUntil(p.expires);
-  const head = Math.max(0, (p.pa || p.ca) - p.ca);
-  const yhead = a <= 21 ? head : a <= 24 ? head * 0.5 : 0;
-  let ln =
-    VAL_B.c0 +
-    VAL_B.wRep * (wSat(p.worldRep || 3000) / 1000) +
-    VAL_B.age * a +
-    VAL_B.yhead * yhead +
-    VAL_B.lnC * Math.log(Math.max(2, m == null ? 36 : m));
-  let v = Math.exp(ln);
-  if (m != null && m <= 4) v *= 0.7; // (almost) transfer-free
-  v = v >= 1e6 ? Math.round(v / 1e5) * 1e5 : Math.round(v / 1e4) * 1e4;
-  const band = a <= 20 ? 0.5 : 0.35;
-  return {
-    v,
-    est: true,
-    lo: Math.round(v * (1 - band)),
-    hi: Math.round(v * (1 + band)),
-  };
-}
-function estHtml(p) {
-  const e = estValue(p);
-  if (e.v == null) return '<span class="dim">–</span>';
-  // A dash is enough here because the status column already identifies free agents.
-  if (e.v === 0) return `<span class="dim" data-help="free_l">–</span>`;
-  return (e.est ? '<span class="dim">~</span>' : '') + fmtMoney(e.v);
-}
-
-// ---------- estimated asking price / transfer fee ----------
-// Estimate what my club is likely to pay. Transfer status has the greatest effect.
-// Listed or released players often move near or below value; contract length matters more for players the club wants to keep.
-// Add a buyer-size adjustment and a squad-status estimate based on wages.
-// Squad status, competing clubs, and your budget are unknown, so this remains an estimate.
-
-// Use wage rank at the selling club as a proxy for squad status. Top earners are more likely to be
-// important players; low-paid fringe players are often easier to sign. Cache the ranks per dump.
-function wageRankInClub(p) {
-  if (!p.club || !(p.wage > 0)) return null;
-  if (!state._clubWages) {
-    const map = new Map();
-    for (const q of state.players) {
-      if (!q.club || !(q.wage > 0)) continue;
-      const k = q.club.toLowerCase();
-      let arr = map.get(k);
-      if (!arr) map.set(k, (arr = []));
-      arr.push(q.wage);
-    }
-    for (const arr of map.values()) arr.sort((a, b) => b - a);
-    state._clubWages = map;
+// These values are shown only when FM's player data contains them.
+function fmValue(p) {
+  if (p?.fmValueRead) {
+    if (p.valueMin == null || p.valueMax == null) return { v: null };
+    const lo = Number(p.valueMin), hi = Number(p.valueMax);
+    return Number.isFinite(lo) && Number.isFinite(hi) && lo >= 0 && hi >= lo
+      ? { v: lo, hi }
+      : { v: null };
   }
-  const arr = state._clubWages.get(p.club.toLowerCase());
-  if (!arr || arr.length < 8) return null; // too few players from this club in the dump
-  let low = 0,
-    high = arr.length;
-  while (low < high) {
-    const middle = (low + high) >>> 1;
-    if (arr[middle] > p.wage) low = middle + 1;
-    else high = middle;
-  }
-  return { rank: low + 1, n: arr.length };
+  if (p?.nativeTransferRead) return { v: null };
+  return fmStoredValue(p);
+}
+function fmStoredValue(p) {
+  // Old dumps used +0x1B0, which assembly inspection proved is not a money field.
+  if (state.meta.playerValueSource !== 'fm24-stored-guide-1d0') return { v: null };
+  const v = Number(p?.value);
+  return Number.isFinite(v) && v > 0 && v !== 0xffffffff
+    ? { v }
+    : { v: null };
+}
+function fmValueHtml(p) {
+  const value = fmValue(p);
+  return value.v == null
+    ? '<span class="dim" data-help="valueHint">–</span>'
+    : fmValueText(p);
+}
+function fmValueText(p) {
+  const value = fmValue(p);
+  if (value.v == null) return '–';
+  return value.hi > value.v ? `${fmtMoney(value.v)} – ${fmtMoney(value.hi)}` : fmtMoney(value.v);
+}
+function fmAskingPrice(p) {
+  if (p?.minimumAcceptedBid == null || p.minimumBidStatus !== 'verified-cash-boundary') return { v: null };
+  const v = Number(p.minimumAcceptedBid);
+  return Number.isFinite(v) && v >= 0 && v !== 0xffffffff
+    ? { v }
+    : { v: null };
+}
+function askingPriceHtml(p) {
+  const price = fmAskingPrice(p);
+  return price.v == null
+    ? '<span class="dim" data-help="askingPriceHint">–</span>'
+    : fmtMoney(price.v);
 }
 
-function feeMultiplier(p) {
-  const m = monthsUntil(p.expires);
-  const mm = m == null ? 30 : m;
-
-  // A player set for release is usually available near or below market value.
-  if (p.setForRelease) return 0.2; // virtually a bargain price
-  // A listed player's guide value is not an asking price; keep the multiplier neutral and show an estimate.
-  if (p.listed) return 1.0;
-
-  // Initial calibration used 55 players spanning Telstar to Mbappe.
-  // Estimates were usually within about 15% of FM's transfer-value ranges. The first model
-  // produced premiums as high as 2.4x, so these signals are now moderated.
-  // More data on completed transfers could improve the estimate.
-  let f = Math.min(1.35, Math.max(0.6, 0.7 + 0.014 * mm));
-  if (p.notForSale) f *= 1.5; // Not for sale: only available with a substantial offer
-
-  const a = getAge(p) || 25;
-  const head = Math.max(0, (p.pa || p.ca) - p.ca);
-  if (a <= 21 && head >= 15)
-    f *= 1 + Math.min(0.2, head * 0.007); // child prodigy premium (moderate)
-  else if (a <= 23) f *= 1.05;
-  else if (a >= 31) f *= 0.8;
-  else if (a >= 29) f *= 0.9;
-
-  const r = wageRankInClub(p);
-  if (r) {
-    if (r.rank <= 2)
-      f *= 1.12; // top earner: probably star player
-    else if (r.rank <= 5) f *= 1.05;
-    else if (r.rank / r.n > 0.6) f *= 0.92; // edge player: easier to pick up
-  }
-
-  // Larger clubs may pay more, while smaller clubs may receive lower asking prices.
-  const myRep = state.meta.myClubRep || 0;
-  if (myRep && p.clubRep > 0) {
-    const gap = myRep - p.clubRep;
-    f *= Math.min(1.2, Math.max(0.88, 1 + gap / 15000));
-  }
-
-  return Math.min(p.notForSale ? 2.2 : 1.7, Math.max(0.4, f));
+// These labels use FM's native Interested In filter, including its manager-context adjustment.
+const FM_INTEREST_LEVELS = [
+  'Doubtful',
+  'Unsure',
+  'Slightly Interested',
+  'Interested',
+  'Very Interested',
+  'Extremely Interested',
+];
+function gameInterestOrder(value) {
+  const normalized = String(value ?? '').trim().toLocaleLowerCase();
+  if (normalized === 'not interested') return -2;
+  return FM_INTEREST_LEVELS.findIndex((label) => label.toLocaleLowerCase() === normalized);
 }
-// Memoized per player (_fee); see metaScore.
-function feeEstimate(p) {
-  if (p._fee !== undefined) return p._fee;
-  return (p._fee = feeEstimateCalc(p));
+function gameInterestLabel(p) {
+  const value = $('f-interest-kind')?.value === 'loan' ? p?.gameLoanInterest : p?.gameInterest;
+  const i = gameInterestOrder(value);
+  return i === -2 ? 'Not interested' : i < 0 ? null : FM_INTEREST_LEVELS[i];
 }
-function feeEstimateCalc(p) {
-  if (Number(p.askingPrice) > 0) return { v: Number(p.askingPrice), valueEst: false, exact: true };
-  const ev = estValue(p);
-  if (ev.v == null) return { v: null };
-  if (ev.v === 0) return { v: 0 };
-  let v = ev.v * feeMultiplier(p);
-  v = v >= 1e6 ? Math.round(v / 1e5) * 1e5 : Math.round(v / 1e4) * 1e4;
-  return { v, valueEst: ev.est, exact: false };
-}
-function feeHtml(p) {
-  const f = feeEstimate(p);
-  if (f.v == null) return '<span class="dim">–</span>';
-  if (f.v === 0) return `<span class="dim" data-help="free_l">–</span>`;
-  const exact = f.exact === true;
-  return (exact ? '' : '<span class="dim">~</span>') + fmtMoney(f.v);
-}
-
-// ---------- estimated transfer interest ----------
-// Estimate my club's wage ceiling from its highest-paid players.
-// A target earning much more than this ceiling may be difficult to sign.
-function myWageCeiling() {
-  if (state._wageCeil !== undefined) return state._wageCeil;
-  const club = (state.meta.myClub || '').toLowerCase();
-  const wages = state.players
-    .filter((p) => (p.club || '').toLowerCase() === club && p.wage > 0)
-    .map((p) => p.wage)
-    .sort((a, b) => b - a);
-  // Use the second-highest wage so one outlier does not set the ceiling.
-  const ref = wages.length >= 2 ? wages[1] : wages[0];
-  state._wageCeil = ref ? Math.round(ref * 1.3) : null; // ~30% stretch above current peak
-  return state._wageCeil;
-}
-// Estimate from 0 to 100 how likely a player is to join my club.
-// Cache the estimate per player because its inputs do not change during a render.
-function interestEstimate(p) {
-  if (p._int !== undefined) return p._int;
-  return (p._int = interestEstimateCalc(p));
-}
-function interestEstimateCalc(p) {
-  const myRep = state.meta.myClubRep || 0;
-  if (!myRep) return null;
-  if (p.club && (p.club || '').toLowerCase() === (state.meta.myClub || '').toLowerCase())
-    return null; // own player
-
-  // Compare my club's reputation with the player's current club and personal reputation.
-  // For young players, emphasize the club gap because low world reputation often reflects age.
-  const age = getAge(p);
-  const known = age != null && age > 0; // year of birth may be missing → age unknown, not "0 years"
-  const eu = isEu(p);
-  const clubGap = myRep - (p.clubRep || 0);
-  const statGap = myRep - (p.worldRep || 0);
-  const blend =
-    known && age <= 19 ? 0.9 * clubGap + 0.15 * statGap : 0.55 * clubGap + 0.45 * statGap;
-  let score = 100 / (1 + Math.exp(-blend / 1400)); // 0 gap → 50; +1400 → ~73; -1400 → ~27
-
-  // Availability signals
-  if (isFree(p)) score = Math.max(score, 72); // clubless: only wages needed
-  if (p.listed || p.setForRelease) score += 15; // club wants to sell
-  if (p.notForSale) score *= 0.4; // not for sale: significantly reduced
-  const m = monthsUntil(p.expires);
-  if (m != null && m <= 6)
-    score += 14; // (almost) transfer-free
-  else if (m != null && m <= 12) score += 7;
-
-  // Wage feasibility: does the player fit into my wage structure?
-  const ceil = myWageCeiling();
-  if (ceil && p.wage > 0 && !isFree(p)) {
-    const ratio = p.wage / ceil;
-    if (ratio > 1)
-      score -= Math.min(38, (ratio - 1) * 46); // over budget: difficult
-    else score += Math.min(6, (1 - ratio) * 8); // Affordable player: small positive adjustment
-  }
-
-  // Ambition favors upward moves and discourages sideways or downward moves; loyalty favors staying.
-  if (p.ambition) score += (blend >= 0 ? 1.2 : -2.2) * (p.ambition - 10);
-  if (p.loyalty && !isFree(p)) score *= 1 - 0.45 * (p.loyalty / 20);
-
-  // Younger players are less likely to move while they settle and develop at their current club.
-  if (known && age <= 16) score *= 0.7;
-  else if (known && age <= 17) score *= 0.85;
-
-  // FIFA Article 19 restricts international transfers of non-EU players under 18.
-  // Do not apply the age restriction when the player's birth date is unknown.
-  let note = null;
-  if (known && age <= 15) {
-    score = Math.min(score, 6);
-    note = 'minor';
-  } else if (known && age <= 17 && !eu) {
-    score = Math.min(score, 8);
-    note = 'minorIntl';
-  }
-
-  score = Math.max(0, Math.min(100, Math.round(score)));
-  const label =
-    score >= 70
-      ? text('int_big')
-      : score >= 45
-        ? text('int_ok')
-        : score >= 25
-          ? text('int_small')
-          : text('int_no');
-  const cls = score >= 70 ? 'int-g' : score >= 45 ? 'int-r' : score >= 25 ? 'int-k' : 'int-n';
-  return { score, label, cls, note };
-}
-function intHtml(p) {
-  const i = interestEstimate(p);
-  if (!i) return '<span class="dim">?</span>';
-  return `<span class="int ${i.cls}" data-tip="${i.score}/100">${i.label}</span>`;
+function gameInterestHtml(p) {
+  const label = gameInterestLabel(p);
+  if (!label) return '<span class="dim" data-help="interestHint">–</span>';
+  const i = gameInterestOrder(label);
+  const classes = ['int-n', 'int-n', 'int-k', 'int-r', 'int-g', 'int-g'];
+  return `<span class="int ${classes[i] || 'int-n'}" data-help="interestHint">${label}</span>`;
 }
 
 function statusHtml(p) {

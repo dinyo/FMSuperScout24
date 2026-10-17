@@ -10,6 +10,7 @@ const path = require('path');
 const os = require('os');
 const { spawn, execFile } = require('child_process');
 const { createShortlistFmf, importShortlistFmf } = require('./fmf');
+const { queryNativeTransfer } = require('./native-transfer');
 
 const PORT = Number(process.env.PORT) || 8766;
 const APP_DIR = __dirname;
@@ -628,6 +629,34 @@ const server = http.createServer((req, res) => {
   if (url.pathname === '/api/setup') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ known: false, nativeReader: true }));
+    return;
+  }
+
+  if (url.pathname === '/api/native-transfer/status' && req.method === 'GET') {
+    queryNativeTransfer().then((result) => {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(result));
+    }).catch((error) => {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: false, error: error.message }));
+    });
+    return;
+  }
+
+  if (url.pathname === '/api/native-transfer' && req.method === 'POST') {
+    readBody(req, 32 * 1024).then((body) => {
+      const input = JSON.parse(body.toString('utf8'));
+      if (!Array.isArray(input.ids) || !input.ids.length || input.ids.length > 1024 ||
+          input.ids.some((id) => !Number.isInteger(id) || id <= 0 || id >= 0xffffffff))
+        throw new Error('Provide one to 1,024 valid player IDs.');
+      return queryNativeTransfer([...new Set(input.ids)]);
+    }).then((result) => {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(result));
+    }).catch((error) => {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: false, error: error.message }));
+    });
     return;
   }
 

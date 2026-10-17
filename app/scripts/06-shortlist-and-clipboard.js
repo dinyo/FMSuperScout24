@@ -43,6 +43,7 @@ function toggleShortlist(id) {
   if (el && state.selected) el.classList.toggle('on', state.shortlist.has(state.selected.id));
 }
 function updateBulkBar() {
+  renderNativeTransferStatus();
   const bar = $('bulk-bar');
   const n = ['players', 'shortlist', 'myplayer'].includes(state.mode) ? state.bulkSelected.size : 0;
   bar.classList.toggle('hidden', n === 0);

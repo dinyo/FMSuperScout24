@@ -413,8 +413,8 @@ function openCompare() {
     `<div class="cmp-row cmp-head"><div class="cmp-lbl"></div>` +
     players
       .map((p, i) => {
-        const ev = estValue(p);
-        const val = ev.v > 0 ? fmtMoney(ev.v) : null;
+        const ev = fmValue(p);
+        const val = ev.v != null ? fmValueText(p) : null;
         const bits = [
           val,
           p.wage > 0 ? fmtWage(p.wage) + ' ' + wageSuf() : null,
@@ -457,20 +457,12 @@ function openCompare() {
       players.map((p) => metaPaScore(p)),
       { fmt: (v) => v.toFixed(2) },
     );
+  body += textRow(text('cmpValue'), players.map((p) => fmValueText(p)));
   body += row(
-    text('cmpValue'),
-    players.map((p) => estValue(p).v),
-    { fmt: fmtMoney, hi: null },
+    text('c_fee'),
+    players.map((p) => fmAskingPrice(p).v),
+    { fmt: fmtMoney, hi: false },
   );
-  if (!state.hideCapa)
-    body += row(
-      text('c_fee'),
-      players.map((p) => {
-        const f = feeEstimate(p);
-        return f.v > 0 ? f.v : null;
-      }),
-      { fmt: fmtMoney, hi: false },
-    );
   body += row(
     text('wageLabel') + ' ' + wageSuf(),
     players.map((p) => p.wage),

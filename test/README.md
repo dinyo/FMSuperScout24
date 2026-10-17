@@ -21,3 +21,15 @@ comes straight from memory and the estimation model is on point. If the estimati
 recalibrating, temporarily restore the collection in `app/server.js` (see the
 git history of `archiveValues`). The current tests check *invariants* (value does not drop
 with more reputation, potential stays ≤ 20, and so on).
+
+## FM24 staff job preferences
+
+With a .NET 6 Windows SDK available, run:
+
+```powershell
+dotnet run --project test/reader-jobs/reader-jobs.csproj
+```
+
+This exercises the production preference decoder using Dylan Rousselle's live
+fixture, all 15 interest groups, native tie order and invalid-read handling.
+The frontend checks are included in `npm test`.

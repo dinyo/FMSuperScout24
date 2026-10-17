@@ -1,12 +1,13 @@
-# Bouwt een deelbaar installatiepakket: bundelt node.exe + app + installer in een map
-# en zipt die tot FMSuperScout24-Setup.zip. Draai dit vanuit de repo (heeft node.exe nodig).
+# Bouwt een deelbaar installatiepakket: bundelt de app en pinned Node LTS runtime,
+# en zipt die tot FMSuperScout24-Setup.zip. Node wordt de eerste keer gedownload en geverifieerd.
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path $PSScriptRoot -Parent
 $dist = Join-Path $repo 'dist'
 $pkg = Join-Path $dist 'FMSuperScout24'
 
 # Icoon (opnieuw) genereren
-node (Join-Path $PSScriptRoot 'make-icon.js')
+$node = & (Join-Path $PSScriptRoot 'ensure-node-runtime.ps1')
+& $node (Join-Path $PSScriptRoot 'make-icon.js')
 
 # Schone dist-map
 if (Test-Path $pkg) { Remove-Item $pkg -Recurse -Force }
@@ -24,6 +25,10 @@ $readerOut = Join-Path $repo 'reader\bin\Release\net6.0-windows\win-x64\publish'
 if (-not (Test-Path (Join-Path $readerOut 'FMSuperScout24.Reader.exe'))) { throw 'FMSuperScout24.Reader.exe ontbreekt na publish.' }
 New-Item -ItemType Directory -Force -Path (Join-Path $pkg 'reader') | Out-Null
 Copy-Item (Join-Path $readerOut 'FMSuperScout24.Reader.exe') -Destination (Join-Path $pkg 'reader') -Force
+& (Join-Path $repo 'reader\native_query\build.ps1')
+$nativeQueryRoot = Join-Path $repo 'reader\bin\native-query'
+Get-ChildItem -LiteralPath $nativeQueryRoot | Where-Object { $_.Name -notin @('fm24_hook.obj', 'fm24_hook.lib', 'fm24_hook.exp') } |
+  ForEach-Object { Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $pkg 'reader') -Recurse -Force }
 
 # App-bestanden, inclusief de opgesplitste browser-scripts en meta-presets.
 Copy-Item (Join-Path $repo 'app\*') -Destination (Join-Path $pkg 'app') -Recurse -Force
@@ -36,8 +41,8 @@ foreach ($f in @('FMSuperScout24.vbs', 'icon.ico', 'install.ps1', 'uninstall.ps1
 }
 
 # node.exe meebundelen zodat vrienden zonder Node het gewoon kunnen draaien
-$node = (Get-Command node).Source
 Copy-Item $node -Destination (Join-Path $pkg 'node.exe') -Force
+Copy-Item (Join-Path (Split-Path $node -Parent) 'node-LICENSE.txt') -Destination (Join-Path $pkg 'node-LICENSE.txt') -Force
 Write-Host "node.exe gebundeld ($([math]::Round((Get-Item $node).Length/1MB,1)) MB)"
 
 # Zippen

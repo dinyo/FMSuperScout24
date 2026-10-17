@@ -161,7 +161,7 @@ const VS_POSITION_LABELS = {
 };
 
 function vsFormation() {
-  return XI_FORMATIONS[state.bestXiFormation] || XI_FORMATIONS['4-3-3'];
+  return XI_FORMATIONS[state.bestXiFormation] || XI_FORMATIONS['4-3-3 DM Wide'];
 }
 
 function vsSelectedTeamGroups() {

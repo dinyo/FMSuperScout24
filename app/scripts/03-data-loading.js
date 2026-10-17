@@ -158,6 +158,39 @@ function buildPitch() {
 // Large saves can exceed the size limits for a single JavaScript string or JSON.parse().
 // The parser relies on these top-level sections appearing in the expected dump structure.
 // Intern repeated strings such as club, division, and date values to reduce peak memory use.
+function updateGameInterestFilterOptions(players) {
+  const select = $('f-interest');
+  if (!select) return;
+  const previous = select.value;
+  const available = state.nativeTransfer?.available || players.some((p) => gameInterestOrder(gameInterestLabel(p)) !== -1);
+  if (!available) {
+    select.innerHTML = `<option value="unavailable">${text('interestUnavailable')}</option>`;
+    select.value = 'unavailable';
+    select.disabled = true;
+    return;
+  }
+  select.innerHTML =
+    `<option value="">${text('all')}</option>` +
+    FM_INTEREST_LEVELS.map((label, i) => `<option value="${i}">${label}</option>`).join('');
+  select.disabled = false;
+  select.title = text('interestHint');
+  const selected = previous === '' || previous === 'unavailable' ? -1 : Number(previous);
+  select.value = Number.isInteger(selected) && selected >= 0 && selected < FM_INTEREST_LEVELS.length
+    ? String(selected)
+    : '';
+}
+
+function updateAskingPriceFilterAvailability(players) {
+  const input = $('f-fee');
+  if (!input) return;
+  const available = state.nativeTransfer?.available || players.some((p) => fmAskingPrice(p).v != null);
+  input.disabled = !available;
+  input.placeholder = available ? '15M' : '–';
+  input.title = available ? '' : text('askingPriceHint');
+  if (!available) input.value = '';
+}
+
+// Intern repeated strings such as club, division, and date values to reduce peak memory use.
 const INTERN_KEYS = ['club', 'ownerClub', 'div', 'pos', 'foot', 'expires', 'dob', 'job'];
 function internStrings(obj, pool) {
   for (const k of INTERN_KEYS) {
@@ -381,6 +414,8 @@ async function loadDump(force = false) {
     state.players = state.allPlayers.filter(
       (p) => p.club || p.worldRep !== 0xffff || savedShortlistIds.has(Number(p.id)),
     );
+    updateGameInterestFilterOptions(state.allPlayers);
+    updateAskingPriceFilterAvailability(state.allPlayers);
     const seniorSquadCounts = new Map();
     for (const p of state.allPlayers)
       if (p.clubId && p.teamType === 0) {
@@ -404,6 +439,7 @@ async function loadDump(force = false) {
     }
     state.clubs = data.clubs || [];
     state.meta = data.meta || {};
+    resetNativeTransferData();
     // FM's current visible player/search result is authoritative when the plugin found it.
     // This imports thousands of in-game Interested results without selecting rows first.
     if (state.meta.gameShortlistFound && Array.isArray(state.meta.gameShortlist)) {
@@ -421,12 +457,9 @@ async function loadDump(force = false) {
     } else {
       $('shortlist-sync-status').textContent = text('syncmissing');
     }
-    state._wageCeil = undefined; // recalculate wage cap for this dump
-    state._clubWages = null; // rebuild wage rank cache (ask price).
     state._nowTs = undefined; // "now" time follows the new in-game date (monthsUntil)
     _expTsCache.clear(); // contract date → clear timestamp cache
-    // Per-player caches (_meta/_ev/_fee/_int/_q) are tied to the parsed objects, so replacing the
-    // player array releases them. Derive the reference year from the in-game date.
+    // Per-player caches (_meta/_q) are tied to the parsed objects. Derive the reference year from the in-game date.
     if (state.meta.gameDate) {
       const g = parseGameDate(state.meta.gameDate);
       state.refYear = state.meta.gameYear || g.getFullYear();
@@ -652,12 +685,12 @@ function buildStaffRoles() {
     if (key && !byJob.has(key)) byJob.set(key, s);
   }
   const items = [...byJob]
-    .map(([v, s]) => ({ v, l: jobLabel(s) }))
+    .map(([v, s]) => ({ v, l: preferredJobLabel(s) || jobLabel(s) }))
     .sort((a, b) => a.l.localeCompare(b.l, FORMAT_LOCALE));
   $('f-staffrole').innerHTML =
     `<option value="">${text('all')}</option>` +
     items.map((x) => `<option value="${escHtml(x.v)}">${escHtml(x.l)}</option>`).join('');
-  const oldRole = state.staff.find((s) => s.job === cur);
+  const oldRole = state.staff.find((s) => staffRoleKey(s) === cur);
   $('f-staffrole').value = items.some((x) => x.v === cur)
     ? cur
     : oldRole
